@@ -1,18 +1,13 @@
-import streamlit as st  # type: ignore
-import pandas as pd  # type: ignore
-import numpy as np  # type: ignore
+import streamlit as st
+import pandas as pd
+import numpy as np
 from datetime import datetime
-from scipy.io.wavfile import write  # type: ignore
-from sqlalchemy import create_engine  # type: ignore
+from scipy.io.wavfile import write
+from sqlalchemy import create_engine
 import os
-import pygame  
 import random
-from pygame import mixer  # type: ignore
 
-pygame.mixer.init()  # Inicializa o mixer do pygame
 # Parâmetros do som
-
-# Constantes
 SAMPLE_RATE = 44100
 DURATION = 2
 FREQUENCY = 440
@@ -20,29 +15,24 @@ SOM_ALERTA = "som_alerta.wav"
 ARQUIVO_CSV = "chamados.csv"
 DATABASE_URL = "sqlite:///chamados.db"
 
-# Caminho relativo para o som amigável
+# Caminho para os arquivos de som
 SOM_AMIGAVEL = os.path.join("assets", "chamada.mp3")
+MUSICAS = [
+    "C:/users/bandm/Documents/Painel chamador/chamada.mp3",
+    # Adicione outras músicas se necessário
+]
 
-# Lista de músicas para IA escolher aleatoriamente
-MUSICAS = "C:/users/bandm/Documents/Painel chamador\chamada.mp3.mp3"
-
-
-
-# Configuração inicial
+# Inicialização
 st.set_page_config(page_title="Sistema de Chamadas", layout="wide")
 st.title("🚛 Sistema de Chamadas de Motoristas")
 engine = create_engine(DATABASE_URL)
 
-# Carregamento dos parâmetros da URL
-# Carregamento dos parâmetros da URL
-
+# Carregar parâmetros da URL
 query_params = st.query_params
-
-
 modo_url = query_params.get("modo", [None])[0]
 modo_opcoes = ["Painel ADM", "Painel Pátio", "Painel Motorista"]
 
-# Inicialização segura do session_state
+# Inicialização do session_state
 if "modo" not in st.session_state:
     st.session_state["modo"] = modo_url if modo_url in modo_opcoes else "Painel Motorista"
 if "som_ativado" not in st.session_state:
@@ -51,10 +41,6 @@ if "df_cache" not in st.session_state:
     st.session_state["df_cache"] = None
 
 # Funções
-def atualizar_url(modo):
-    st.query_params["modo"] = modo
-
-
 def gerar_som():
     if not os.path.exists(SOM_ALERTA):
         t = np.linspace(0, DURATION, int(SAMPLE_RATE * DURATION), False)
@@ -64,28 +50,17 @@ def gerar_som():
 
 def tocar_som():
     with open(SOM_ALERTA, "rb") as file:
-        st.audio(file.read(), format=MUSICAS, start_time=0)
-    if st.session_state["som_ativado"]:
-        pygame.mixer.music.load(SOM_ALERTA)
-        pygame.mixer.music.play()
+        st.audio(file.read(), format="audio/wav", start_time=0)
 
-    # Função para tocar música aleatória
 def tocar_musica_aleatoria():
-    musica_escolhida = random.choice(MUSICAS)  # Seleciona uma música aleatoriamente
+    musica_escolhida = random.choice(MUSICAS)  # Seleciona uma música aleatória
     if os.path.exists(musica_escolhida):
-        pygame.mixer.music.load(musica_escolhida)  # Carrega a música escolhida
-        pygame.mixer.music.play()  # Toca a música
+        st.audio(musica_escolhida, format="audio/mp3")
     else:
         st.error(f"Música {musica_escolhida} não encontrada!")
 
-# Função para tocar o som amigável
-def tocar_som_amigavel():
-   tocar_musica_aleatoria()
-with open(SOM_ALERTA, "rb") as file:
-        st.audio(file.read(), format=MUSICAS, start_time=0)
-if st.session_state["som_ativado"]:
-        pygame.mixer.music.load(SOM_ALERTA)
-        pygame.mixer.music.play()
+def alternar_som(ativo: bool):
+    st.session_state["som_ativado"] = ativo
 
 def carregar_dados():
     try:
@@ -105,9 +80,6 @@ def carregar_dados():
 def salvar_dados(df):
     df.to_csv(ARQUIVO_CSV, index=False)
 
-def alternar_som(ativo: bool):
-    st.session_state["som_ativado"] = ativo
-
 # Seletor de modo (sidebar)
 modo_atual = st.sidebar.radio(
     "Selecione o modo:",
@@ -119,7 +91,7 @@ modo_atual = st.sidebar.radio(
 # Atualiza session_state e URL se mudar
 if modo_atual != st.session_state["modo"]:
     st.session_state["modo"] = modo_atual
-    atualizar_url(modo_atual)
+    st.query_params["modo"] = modo_atual
     st.rerun()
 
 # Painel ADM
@@ -130,7 +102,7 @@ if st.session_state["modo"] == "Painel ADM":
 
     if st.button("🧹 Limpar visualização"):
         st.session_state["df_cache"] = pd.DataFrame(columns=df.columns)
-        st.success("Visualização limpa (dados salvos no CSV).")
+        st.success("Visualização limpa.")
 
     st.subheader("🚚 Lista de Motoristas")
     if not st.session_state["df_cache"].empty:
@@ -143,66 +115,6 @@ if st.session_state["modo"] == "Painel ADM":
             col5.write(f"Vendedor: {row['vendedor']}")
     else:
         st.info("Nenhum motorista na visualização atual.")
-
-    st.subheader("➕ Adicionar Motorista")
-    with st.form("form_add"):
-        nome = st.text_input("Nome do motorista")
-        contato = st.text_input("Contato")
-        transportadora = st.text_input("Transportadora")
-        senha = st.text_input("Senha")
-        placa = st.text_input("Placa")
-        cliente = st.text_input("Cliente")
-        vendedor = st.text_input("Vendedor")
-        enviar = st.form_submit_button("Adicionar")
-
-        if enviar:
-            if nome and contato and transportadora and senha and placa and cliente and vendedor:
-                df = carregar_dados()
-                if nome in df["motorista"].values:
-                    st.error("Motorista já registrado!")
-                else:
-                    novo = {
-                        "motorista": nome,
-                        "contato": contato,
-                        "transportadora": transportadora,
-                        "senha": senha,
-                        "placa": placa,
-                        "cliente": cliente,
-                        "vendedor": vendedor,
-                        "destino": "",
-                        "doca": "",
-                        "status": "Aguardando",
-                        "chamado_em": pd.NaT,
-                    }
-                    df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
-                    salvar_dados(df)
-                    st.success("Motorista adicionado com sucesso!")
-                    st.rerun()
-            else:
-                st.error("Preencha todos os campos.")
-
-# Painel Pátio
-elif st.session_state["modo"] == "Painel Pátio":
-    st.header("🏭 Painel do Pátio")
-    df = carregar_dados()
-    aguardando_df = df[df["status"] == "Aguardando"]
-
-    if aguardando_df.empty:
-        st.info("Nenhum motorista aguardando.")
-    else:
-        for i, row in aguardando_df.iterrows():
-            with st.expander(f"{row['motorista']} - {row['placa']}"):
-                doca = st.text_input(f"Doca para {row['motorista']}", key=f"doca_{i}")
-                destino = st.text_input(f"Destino para {row['motorista']}", key=f"destino_{i}")
-                if st.button("✅ Confirmar", key=f"confirmar_{i}"):
-                    df.at[i, "doca"] = doca
-                    df.at[i, "destino"] = destino
-                    df.at[i, "status"] = "Chamado"
-                    df.at[i, "chamado_em"] = datetime.now()
-                    salvar_dados(df)
-                    st.success(f"{row['motorista']} chamado com sucesso!")
-                    tocar_som()
-                    st.rerun()
 
 # Painel Motorista
 else:
@@ -239,14 +151,10 @@ else:
             """,
             unsafe_allow_html=True
         )
-        if st.session_state["som_ativado"]:
-            st.audio(SOM_ALERTA, format="audio/wav")
 
-        if len(df_chamados) > 1:
-            st.markdown("### Chamadas anteriores:")
-            for i in range(1, len(df_chamados)):
-                row = df_chamados.iloc[i]
-                st.info(f"{row['motorista']} | Doca: {row['doca']} | Destino: {row['destino']}")
+        if st.session_state["som_ativado"]:
+            tocar_som()
+
     else:
         st.info("Nenhum motorista chamado no momento.")
 
