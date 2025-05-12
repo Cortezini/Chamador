@@ -3,4 +3,5 @@ pandas
 numpy
 scipy
 sqlalchemy
-paygame
+pygame
+random
