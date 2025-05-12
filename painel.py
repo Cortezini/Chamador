@@ -102,7 +102,7 @@ if st.session_state["modo"] == "Painel ADM":
 
     if st.button("🧹 Limpar visualização"):
         st.session_state["df_cache"] = pd.DataFrame(columns=df.columns)
-        st.success("Visualização limpa.")
+        st.success("Visualização limpa (dados salvos no CSV).")
 
     st.subheader("🚚 Lista de Motoristas")
     if not st.session_state["df_cache"].empty:
@@ -115,6 +115,43 @@ if st.session_state["modo"] == "Painel ADM":
             col5.write(f"Vendedor: {row['vendedor']}")
     else:
         st.info("Nenhum motorista na visualização atual.")
+
+    st.subheader("➕ Adicionar Motorista")
+    with st.form("form_add"):
+        nome = st.text_input("Nome do motorista")
+        contato = st.text_input("Contato")
+        transportadora = st.text_input("Transportadora")
+        senha = st.text_input("Senha")
+        placa = st.text_input("Placa")
+        cliente = st.text_input("Cliente")
+        vendedor = st.text_input("Vendedor")
+        enviar = st.form_submit_button("Adicionar")
+
+        if enviar:
+            if nome and contato and transportadora and senha and placa and cliente and vendedor:
+                df = carregar_dados()
+                if nome in df["motorista"].values:
+                    st.error("Motorista já registrado!")
+                else:
+                    novo = {
+                        "motorista": nome,
+                        "contato": contato,
+                        "transportadora": transportadora,
+                        "senha": senha,
+                        "placa": placa,
+                        "cliente": cliente,
+                        "vendedor": vendedor,
+                        "destino": "",
+                        "doca": "",
+                        "status": "Aguardando",
+                        "chamado_em": pd.NaT,
+                    }
+                    df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
+                    salvar_dados(df)
+                    st.success("Motorista adicionado com sucesso!")
+                    st.rerun()
+            else:
+                st.error("Preencha todos os campos.")
 
     # Painel Pátio
 elif st.session_state["modo"] == "Painel Pátio":
@@ -174,14 +211,16 @@ else:
             """,
             unsafe_allow_html=True
         )
-
         if st.session_state["som_ativado"]:
-            tocar_som()
+            st.audio(SOM_ALERTA, format="audio/wav")
 
+        if len(df_chamados) > 1:
+            st.markdown("### Chamadas anteriores:")
+            for i in range(1, len(df_chamados)):
+                row = df_chamados.iloc[i]
+                st.info(f"{row['motorista']} | Doca: {row['doca']} | Destino: {row['destino']}")
     else:
         st.info("Nenhum motorista chamado no momento.")
-
-    
 
 # Geração e sincronização final
 gerar_som()
