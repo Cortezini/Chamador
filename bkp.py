@@ -6,7 +6,6 @@ from scipy.io.wavfile import write
 from sqlalchemy import create_engine
 import os
 import random
-import time
 
 # Parâmetros do som
 SAMPLE_RATE = 44100
@@ -28,9 +27,6 @@ st.set_page_config(page_title="Sistema de Chamadas", layout="wide")
 st.title("🚛 Sistema de Chamadas de Motoristas")
 engine = create_engine(DATABASE_URL)
 
-# Tempo para atualização automática (em segundos)
-AUTO_UPDATE_INTERVAL = 5
-
 # Carregar parâmetros da URL
 query_params = st.query_params
 modo_url = query_params.get("modo", [None])[0]
@@ -43,10 +39,6 @@ if "som_ativado" not in st.session_state:
     st.session_state["som_ativado"] = True
 if "df_cache" not in st.session_state:
     st.session_state["df_cache"] = None
-if "som_tocado" not in st.session_state:
-    st.session_state["som_tocado"] = False
-if "auto_update" not in st.session_state:
-    st.session_state["auto_update"] = False
 
 # Funções
 def gerar_som():
@@ -87,11 +79,6 @@ def carregar_dados():
 
 def salvar_dados(df):
     df.to_csv(ARQUIVO_CSV, index=False)
-
-# Atualização automática
-if st.session_state["auto_update"]:
-    time.sleep(AUTO_UPDATE_INTERVAL)
-    st.experimental_rerun()
 
 # Seletor de modo (sidebar)
 modo_atual = st.sidebar.radio(
@@ -166,7 +153,7 @@ if st.session_state["modo"] == "Painel ADM":
             else:
                 st.error("Preencha todos os campos.")
 
-# Painel Pátio
+    # Painel Pátio
 elif st.session_state["modo"] == "Painel Pátio":
     st.header("🏭 Painel do Pátio")
     df = carregar_dados()
@@ -208,11 +195,6 @@ else:
             if st.button("🔊 Ativar"):
                 alternar_som(True)
 
-    if st.checkbox("Atualização automática", value=st.session_state["auto_update"]):
-        st.session_state["auto_update"] = True
-    else:
-        st.session_state["auto_update"] = False
-
     df_chamados = df[df["status"] == "Chamado"].sort_values(by="chamado_em", ascending=False)
 
     if not df_chamados.empty:
@@ -229,15 +211,16 @@ else:
             """,
             unsafe_allow_html=True
         )
+        if st.session_state["som_ativado"]:
+            st.audio(SOM_ALERTA, format="audio/wav")
 
-        # Som automático para novos chamados
-        if not st.session_state["som_tocado"]:
-            if st.session_state["som_ativado"]:
-                st.audio(SOM_ALERTA, format="audio/wav")
-            st.session_state["som_tocado"] = True
+        if len(df_chamados) > 1:
+            st.markdown("### Chamadas anteriores:")
+            for i in range(1, len(df_chamados)):
+                row = df_chamados.iloc[i]
+                st.info(f"{row['motorista']} | Doca: {row['doca']} | Destino: {row['destino']}")
     else:
         st.info("Nenhum motorista chamado no momento.")
-        st.session_state["som_tocado"] = False
 
 # Geração e sincronização final
 gerar_som()
