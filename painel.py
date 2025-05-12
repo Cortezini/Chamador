@@ -5,6 +5,12 @@ from datetime import datetime
 from scipy.io.wavfile import write  # type: ignore
 from sqlalchemy import create_engine  # type: ignore
 import os
+import pygame  
+import random
+from pygame import mixer  # type: ignore
+
+pygame.mixer.init()  # Inicializa o mixer do pygame
+# Parâmetros do som
 
 # Constantes
 SAMPLE_RATE = 44100
@@ -13,6 +19,14 @@ FREQUENCY = 440
 SOM_ALERTA = "som_alerta.wav"
 ARQUIVO_CSV = "chamados.csv"
 DATABASE_URL = "sqlite:///chamados.db"
+
+# Caminho relativo para o som amigável
+SOM_AMIGAVEL = os.path.join("assets", "chamada.mp3")
+
+# Lista de músicas para IA escolher aleatoriamente
+MUSICAS = "C:/users/bandm/Documents/Painel chamador\chamada.mp3.mp3"
+
+
 
 # Configuração inicial
 st.set_page_config(page_title="Sistema de Chamadas", layout="wide")
@@ -50,7 +64,28 @@ def gerar_som():
 
 def tocar_som():
     with open(SOM_ALERTA, "rb") as file:
-        st.audio(file.read(), format="audio/wav")
+        st.audio(file.read(), format=MUSICAS, start_time=0)
+    if st.session_state["som_ativado"]:
+        pygame.mixer.music.load(SOM_ALERTA)
+        pygame.mixer.music.play()
+
+    # Função para tocar música aleatória
+def tocar_musica_aleatoria():
+    musica_escolhida = random.choice(MUSICAS)  # Seleciona uma música aleatoriamente
+    if os.path.exists(musica_escolhida):
+        pygame.mixer.music.load(musica_escolhida)  # Carrega a música escolhida
+        pygame.mixer.music.play()  # Toca a música
+    else:
+        st.error(f"Música {musica_escolhida} não encontrada!")
+
+# Função para tocar o som amigável
+def tocar_som_amigavel():
+   tocar_musica_aleatoria()
+with open(SOM_ALERTA, "rb") as file:
+        st.audio(file.read(), format=MUSICAS, start_time=0)
+if st.session_state["som_ativado"]:
+        pygame.mixer.music.load(SOM_ALERTA)
+        pygame.mixer.music.play()
 
 def carregar_dados():
     try:

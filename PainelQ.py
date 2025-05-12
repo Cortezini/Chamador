@@ -20,10 +20,7 @@ SOM_AMIGAVEL = os.path.join("assets", "chamada.mp3")
 
 # Lista de músicas para IA escolher aleatoriamente
 MUSICAS = [
-    "/home/lukc_br/Área de Trabalho/Painel Chamador/chamada.mp3.mp3",  # Substitua pelos nomes dos arquivos reais de músicas
-    "/home/lukc_br/Área de Trabalho/Painel Chamador/chamada.mp3.mp3",
-    "/home/lukc_br/Área de Trabalho/Painel Chamador/chamada.mp3.mp3",
-    "/home/lukc_br/Área de Trabalho/Painel Chamador/chamada.mp3.mp3"
+    "C:\Users\bandm\Documents\Painel Chamador\chamada.mp3.mp3"
 ]
 
 # Configuração da página
