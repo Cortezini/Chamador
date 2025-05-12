@@ -116,6 +116,29 @@ if st.session_state["modo"] == "Painel ADM":
     else:
         st.info("Nenhum motorista na visualização atual.")
 
+    # Painel Pátio
+elif st.session_state["modo"] == "Painel Pátio":
+    st.header("🏭 Painel do Pátio")
+    df = carregar_dados()
+    aguardando_df = df[df["status"] == "Aguardando"]
+
+    if aguardando_df.empty:
+        st.info("Nenhum motorista aguardando.")
+    else:
+        for i, row in aguardando_df.iterrows():
+            with st.expander(f"{row['motorista']} - {row['placa']}"):
+                doca = st.text_input(f"Doca para {row['motorista']}", key=f"doca_{i}")
+                destino = st.text_input(f"Destino para {row['motorista']}", key=f"destino_{i}")
+                if st.button("✅ Confirmar", key=f"confirmar_{i}"):
+                    df.at[i, "doca"] = doca
+                    df.at[i, "destino"] = destino
+                    df.at[i, "status"] = "Chamado"
+                    df.at[i, "chamado_em"] = datetime.now()
+                    salvar_dados(df)
+                    st.success(f"{row['motorista']} chamado com sucesso!")
+                    tocar_som()
+                    st.rerun()
+
 # Painel Motorista
 else:
     st.header("📣 Painel do Motorista")
@@ -157,6 +180,8 @@ else:
 
     else:
         st.info("Nenhum motorista chamado no momento.")
+
+    
 
 # Geração e sincronização final
 gerar_som()
