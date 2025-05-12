@@ -6,7 +6,6 @@ from scipy.io.wavfile import write
 from sqlalchemy import create_engine
 import os
 import random
-import time
 
 # Parâmetros do som
 SAMPLE_RATE = 44100
@@ -88,10 +87,9 @@ def carregar_dados():
 def salvar_dados(df):
     df.to_csv(ARQUIVO_CSV, index=False)
 
-# Atualização automática
+# Atualização automática usando st_autorefresh
 if st.session_state["auto_update"]:
-    time.sleep(AUTO_UPDATE_INTERVAL)
-    st.experimental_rerun()
+    st.rerun()(interval=AUTO_UPDATE_INTERVAL * 1000, key="auto_refresh")
 
 # Seletor de modo (sidebar)
 modo_atual = st.sidebar.radio(
@@ -101,11 +99,9 @@ modo_atual = st.sidebar.radio(
     key="modo_radio"
 )
 
-# Atualiza session_state e URL se mudar
+# Atualiza session_state se mudar
 if modo_atual != st.session_state["modo"]:
     st.session_state["modo"] = modo_atual
-    st.query_params["modo"] = modo_atual
-    st.rerun()
 
 # Painel ADM
 if st.session_state["modo"] == "Painel ADM":
@@ -162,7 +158,6 @@ if st.session_state["modo"] == "Painel ADM":
                     df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
                     salvar_dados(df)
                     st.success("Motorista adicionado com sucesso!")
-                    st.rerun()
             else:
                 st.error("Preencha todos os campos.")
 
@@ -187,7 +182,6 @@ elif st.session_state["modo"] == "Painel Pátio":
                     salvar_dados(df)
                     st.success(f"{row['motorista']} chamado com sucesso!")
                     tocar_som()
-                    st.rerun()
 
 # Painel Motorista
 else:
@@ -238,11 +232,3 @@ else:
     else:
         st.info("Nenhum motorista chamado no momento.")
         st.session_state["som_tocado"] = False
-
-# Geração e sincronização final
-gerar_som()
-try:
-    df.to_sql("chamados", engine, if_exists="replace", index=False)
-    st.success("📦 Dados sincronizados com banco de dados.")
-except Exception as e:
-    st.error(f"Erro ao salvar no banco de dados: {e}")
