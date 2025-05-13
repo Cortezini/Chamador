@@ -1,256 +1,154 @@
 import streamlit as st
 import pandas as pd
+import os
 import numpy as np
 from datetime import datetime
 from scipy.io.wavfile import write
-import os
-import base64
 
-# ----- Configurações -----
-st.set_page_config(page_title='Painel BDM', layout='wide', page_icon='assets/bdm.ico')  # DEVE SER O PRIMEIRO COMANDO
+# ----- Configurações da Página -----
+st.set_page_config(page_title='Painel BDM', layout='wide', page_icon='🚛')
 
-# Inicialização do session_state
-if "som_tocado" not in st.session_state:
-    st.session_state["som_tocado"] = False  # Inicializa com False ou qualquer valor padrão necessário
-if "som_ativado" not in st.session_state:
-    st.session_state["som_ativado"] = True
-if "auto_update" not in st.session_state:
-    st.session_state["auto_update"] = False
+# ----- Session State -----
+if 'som_ativado' not in st.session_state:
+    st.session_state.som_ativado = True
+if 'auto_update' not in st.session_state:
+    st.session_state.auto_update = False
 
-# ----- Estilo customizado com CSS -----
+# ----- Paths e Constantes -----
+CSV_PATH = 'chamados.csv'
+ASSETS_DIR = 'assets'
+ALERT_FILE = os.path.join(ASSETS_DIR, 'som_alerta.wav')
+
+# ----- Estilo CSS -----
 custom_css = '''
 :root {
-    --primary: #4e73df;
-    --secondary: #1cc88a;
-    --background: #f8f9fc;
-    --card-bg: #ffffff;
-    --text: #5a5c69;
-    --radius: 12px;
-    --spacing: 1rem;
-    --font: 'Roboto', sans-serif;
+  --bg: #f8f9fc;
+  --card: #ffffff;
+  --primary: #4e73df;
+  --highlight: #ffe4b5;
+  --text: #5a5c69;
+  --radius: 10px;
+  --spacing: 1rem;
+  --font: 'Roboto', sans-serif;
 }
-body, .stApp {
-    background: var(--background);
-    color: var(--text);
-    font-family: var(--font);
-}
-.header {
-    font-size: 2.5rem;
-    color: var(--primary);
-    margin-bottom: var(--spacing);
-}
-.card {
-    background: var(--card-bg);
-    border-radius: var(--radius);
-    padding: var(--spacing);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-    margin-bottom: var(--spacing);
-}
+body, .stApp { background: var(--bg); color: var(--text); font-family: var(--font); }
+.header { font-size: 2rem; color: var(--primary); margin-bottom: var(--spacing); }
+.card { background: var(--card); border-radius: var(--radius); padding: var(--spacing); margin-bottom: var(--spacing); box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+.highlight { background: var(--highlight); }
 ''' 
 st.markdown(f'<style>{custom_css}</style>', unsafe_allow_html=True)
 
-# ----- Parâmetros de som e arquivo -----
-SAMPLE_RATE, DURATION, FREQUENCY = 44100, 2, 440
-ALERT_PATH = os.path.join('assets', 'som_alerta.wav')  # Caminho atualizado para som_alerta.wav
-MUSIC_LIST = [os.path.join('assets', 'som_alerta.wav')]  # Atualizado para o nome correto
-DATA_CSV = 'chamados.csv'
-
-# Verifica se o diretório 'assets' existe, senão cria
-if not os.path.exists('assets'):
-    os.makedirs('assets')
-
-# ----- Funções de áudio -----
-def gerar_som():
-    """Gera o som de alerta e salva como som_alerta.wav no diretório assets."""
-    if not os.path.exists('assets'):
-        os.makedirs('assets')  # Cria o diretório assets, se não existir
-    t = np.linspace(0, DURATION, int(SAMPLE_RATE * DURATION), False)
-    wave = 0.5 * np.sin(2 * np.pi * FREQUENCY * t)
+# ----- Funções de Áudio -----
+def gerar_alerta():
+    RATE, DURA, FREQ = 44100, 0.5, 600
+    t = np.linspace(0, DURA, int(RATE * DURA), False)
+    wave = 0.5 * np.sin(2 * np.pi * FREQ * t)
     audio = np.int16(wave * 32767)
-    write(ALERT_PATH, SAMPLE_RATE, audio)  # Salva o som gerado como som_alerta.wav
+    write(ALERT_FILE, RATE, audio)
 
-# Verifica se o arquivo de som existe, senão o gera automaticamente
-if not os.path.exists(ALERT_PATH):
-    print(f"O arquivo {ALERT_PATH} não foi encontrado. Gerando som...")
-    gerar_som()
+if not os.path.exists(ASSETS_DIR):
+    os.makedirs(ASSETS_DIR)
+if not os.path.exists(ALERT_FILE):
+    gerar_alerta()
 
-# Verifica se o arquivo de dados existe, senão cria um arquivo vazio
-if not os.path.exists(DATA_CSV):
-    print(f"O arquivo {DATA_CSV} não foi encontrado. Criando um arquivo vazio...")
-    pd.DataFrame(columns=['motorista', 'contato', 'transportadora', 'senha', 'placa',
-                          'cliente', 'vendedor', 'destino', 'doca', 'status', 'chamado_em']
-                ).to_csv(DATA_CSV, index=False)
+def tocar_alerta():
+    with open(ALERT_FILE, 'rb') as f:
+        st.audio(f.read(), format='audio/wav')
 
-# ----- Funções de áudio -----
-def gerar_som():
-    """Gera o som de alerta e salva como som_alerta.wav no diretório assets."""
-    if not os.path.exists('assets'):
-        os.makedirs('assets')  # Cria o diretório assets, se não existir
-    t = np.linspace(0, DURATION, int(SAMPLE_RATE * DURATION), False)
-    wave = 0.5 * np.sin(2 * np.pi * FREQUENCY * t)
-    audio = np.int16(wave * 32767)
-    write(ALERT_PATH, SAMPLE_RATE, audio)  # Salva o som gerado como som_alerta.wav
-
-def tocar_som():
-    """Toca o som de alerta, gerando-o caso não exista."""
-    if not os.path.exists(ALERT_PATH):
-        st.warning("O arquivo de som 'som_alerta.wav' não foi encontrado. Gerando som de alerta automaticamente...")
-        gerar_som()  # Gera o som automaticamente se não existir
-    try:
-        with open(ALERT_PATH, 'rb') as f:
-            st.audio(f.read(), format='audio/wav')  # Reproduz o som
-    except Exception as e:
-        st.error(f"Erro ao tentar reproduzir o som: {str(e)}")
-# ----- Leitura e gravação de dados -----
+# ----- Carregamento e Salvamento de Dados -----
 def carregar_dados():
-    """Carrega os dados do CSV ou inicializa um DataFrame vazio se o arquivo não existir."""
-    try:
-        df = pd.read_csv(DATA_CSV, parse_dates=['chamado_em'])
-    except FileNotFoundError:
-        # Inicializa um DataFrame vazio se o arquivo não existir
-        cols = ['motorista', 'contato', 'transportadora', 'senha', 'placa',
-                'cliente', 'vendedor', 'destino', 'doca', 'status', 'chamado_em']
-        df = pd.DataFrame(columns=cols)
-        df.to_csv(DATA_CSV, index=False)  # Salva o DataFrame vazio no arquivo
-    except pd.errors.EmptyDataError:
-        # Inicializa um DataFrame vazio se o arquivo estiver vazio
-        cols = ['motorista', 'contato', 'transportadora', 'senha', 'placa',
-                'cliente', 'vendedor', 'destino', 'doca', 'status', 'chamado_em']
-        df = pd.DataFrame(columns=cols)
+    cols = ['motorista','senha','placa','cliente','destino','doca','status','chamado_em']
+    if not os.path.exists(CSV_PATH):
+        pd.DataFrame(columns=cols).to_csv(CSV_PATH, index=False)
+    df = pd.read_csv(CSV_PATH, parse_dates=['chamado_em'])
     return df
 
-
 def salvar_dados(df):
-    """Salva o DataFrame no arquivo CSV."""
-    if isinstance(df, pd.DataFrame):
-        df.to_csv(DATA_CSV, index=False)
-    else:
-        raise ValueError("O objeto fornecido para salvar não é um DataFrame válido!")
+    df.to_csv(CSV_PATH, index=False)
 
 # ----- Sidebar -----
 st.sidebar.title('Controles')
-modo = st.sidebar.selectbox('Modo', ['Painel ADM', 'Painel Pátio', 'Painel Motorista'])
-som_ativo = st.sidebar.checkbox('Som Ativo', True)
-auto_update = st.sidebar.checkbox('Auto Refresh', False)
+modo = st.sidebar.radio('Painel:', ['ADM','Pátio','Motorista'])
+st.sidebar.checkbox('Som Ativo', value=st.session_state.som_ativado, key='som_ativado')
+st.sidebar.checkbox('Auto Refresh', value=st.session_state.auto_update, key='auto_update')
 interval = st.sidebar.slider('Intervalo (s)', 1, 30, 5)
-
-# ----- Auto refresh -----
-if auto_update:
+if st.session_state.auto_update:
     st.experimental_rerun()
 
-# ----- Título -----
-def get_image_base64(path):
-    with open(path, "rb") as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
+# ----- Cabeçalho -----
+st.markdown('<div class="header">🚛 Painel de Chamadas BDM</div>', unsafe_allow_html=True)
 
-img_base64 = get_image_base64("assets/bdm.ico")
-
-st.markdown(f'''
-<div class='header'>
-    <img src="data:image/x-icon;base64,{img_base64}" width="30" style="vertical-align: middle; margin-right: 10px;">
-    Painel de Chamadas BDM
-</div>
-''', unsafe_allow_html=True)
-
+# ----- Main -----
 df = carregar_dados()
 
-# ----- Painel ADM -----
-if modo == 'Painel ADM':
-    st.subheader('Painel Administrativo')
-
-    # Validação de `df`
-    if not isinstance(df, pd.DataFrame):
-        st.error("Erro: Os dados carregados não são um DataFrame válido.")
-        st.stop()
-
-    with st.expander('Estatísticas'):
-        total = len(df)
-        counts = df['status'].value_counts().to_dict()
-        st.write(f'Total: **{total}**')
-        for k, v in counts.items():
-            st.write(f'- {k}: **{v}**')
-
-    if st.button('Limpar Tudo'):
-        salvar_dados(pd.DataFrame(columns=df.columns))
-        st.experimental_rerun()
-
-    st.write('---')
-    st.subheader('Adicionar Motorista')
-
-    with st.form('add'):
-        nome = st.text_input('Nome')
-        contato = st.text_input('Contato')
-        transportadora = st.text_input('Transportadora')
-        senha = st.text_input('Senha')
-        placa = st.text_input('Placa')
-        cliente = st.text_input('Cliente')
-        vendedor = st.text_input('Vendedor')
-        ok = st.form_submit_button('Adicionar')
-
-        if ok:
-            if nome and contato:
-                novo = {
-                    'motorista': nome, 'contato': contato, 'transportadora': transportadora,
-                    'senha': senha, 'placa': placa, 'cliente': cliente, 'vendedor': vendedor,
-                    'destino': '', 'doca': '', 'status': 'Aguardando', 'chamado_em': pd.NaT
-                }
-                # Adiciona a nova linha usando pd.concat
+# --- Painel Administrativo ---
+if modo == 'ADM':
+    st.header('📋 Painel Administrativo')
+    total = len(df)
+    st.markdown(f'**Total de Registros:** {total}')
+    st.markdown('**Status por Categoria:**')
+    st.write(df['status'].value_counts())
+    st.markdown('---')
+    with st.form('form_add'):
+        st.subheader('Adicionar Motorista')
+        c1, c2, c3, c4 = st.columns(4)
+        nome = c1.text_input('Motorista')
+        senha = c2.text_input('Senha')
+        placa = c3.text_input('Placa')
+        cliente = c4.text_input('Cliente')
+        destino = c1.text_input('Destino')
+        doca = c2.text_input('Doca')
+        submit = st.form_submit_button('Adicionar')
+        if submit:
+            if nome and senha:
+                novo = {'motorista':nome,'senha':senha,'placa':placa,'cliente':cliente,
+                        'destino':destino,'doca':doca,'status':'Aguardando','chamado_em':pd.NaT}
                 df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
                 salvar_dados(df)
-                st.success('Motorista adicionado com sucesso!')
+                st.success('Motorista adicionado!')
             else:
-                st.error("Por favor, preencha os campos obrigatórios.")
-
-    st.write('---')
+                st.error('Preencha pelo menos motorista e senha.')
     st.dataframe(df)
 
-# ----- Painel Pátio -----
-elif modo == 'Painel Pátio':
-    st.subheader('Painel do Pátio')
-    aguardando = df[df['status'] == 'Aguardando']
+# --- Painel Pátio ---
+elif modo == 'Pátio':
+    st.header('🏭 Painel do Pátio')
+    aguardando = df[df['status']=='Aguardando']
     if aguardando.empty:
-        st.info('Nenhum aguardando.')
+        st.info('Nenhum motorista aguardando.')
     else:
         for idx, row in aguardando.iterrows():
-            st.markdown('<div class=\'card\'>', unsafe_allow_html=True)
-            st.write(f"**{row['motorista']}** - {row['placa']}")
-            doca = st.text_input('Doca', value=row['doca'], key=f'doca{idx}')
-            destino = st.text_input('Destino', value=row['destino'], key=f'dest{idx}')
-            if st.button('Chamar', key=f'call{idx}'):
-                df.at[idx, 'doca'] = doca
-                df.at[idx, 'destino'] = destino
-                df.at[idx, 'status'] = 'Chamado'
-                df.at[idx, 'chamado_em'] = datetime.now()
+            st.markdown(f"<div class='card'>", unsafe_allow_html=True)
+            st.markdown(f"**Motorista:** {row['motorista']}  |  **Senha:** {row['senha']}")
+            st.markdown(f"**Placa:** {row['placa']}  |  **Cliente:** {row['cliente']}")
+            if st.button('Chamar', key=f'ch_{idx}'):
+                df.at[idx,'status']='Chamado'
+                df.at[idx,'chamado_em']=datetime.now()
                 salvar_dados(df)
                 st.success(f"{row['motorista']} chamado!")
-                if som_ativo:
-                    tocar_som()
+                if st.session_state.som_ativado:
+                    tocar_alerta()
             st.markdown('</div>', unsafe_allow_html=True)
 
-# ----- Painel Motorista -----
-
-if modo == 'Painel Motorista':
-    st.subheader('Painel Motorista')
-    chamados = df[df['status'] == 'Chamado'].sort_values('chamado_em', ascending=False)
+# --- Painel Motorista ---
+elif modo == 'Motorista':
+    st.header('📣 Painel do Motorista')
+    chamados = df[df['status']=='Chamado'].sort_values('chamado_em')
     if chamados.empty:
-        st.info('Nenhum chamado.')
+        st.info('Nenhum chamado ativo.')
     else:
-        for _, row in chamados.iterrows():
-            wait = datetime.now() - row['chamado_em']
-            m, s = divmod(int(wait.total_seconds()), 60)
-            st.markdown('<div class=\'card\'>', unsafe_allow_html=True)
-            st.write(f"🚛 **{row['motorista']}**")
-            st.write(f"Cliente: {row['cliente']}")
-            st.write(f"Doca: {row['doca']}")
-            st.write(f"Destino: {row['destino']}")
-            st.write(f"Tempo: {m}m {s}s")
-            if st.session_state["som_ativado"] and not st.session_state["som_tocado"]:
-                tocar_som()
-                st.session_state["som_tocado"] = True  # Marca como tocado para evitar repetição
-            st.markdown('</div>', unsafe_allow_html=True)
-
-    # Som apenas para o primeiro da fila
-    if not st.session_state["som_tocado"] and st.session_state["som_ativado"]:
-        tocar_som()
-        st.session_state["som_tocado"] = True
+        # Primeiro chamado em destaque
+        first = chamados.iloc[0]
+        st.markdown("<div class='card highlight'>", unsafe_allow_html=True)
+        st.markdown(f"### 🚛 {first['motorista']}  |  Senha: {first['senha']}")
+        st.markdown(f"**Placa:** {first['placa']}  |  **Cliente:** {first['cliente']}")
+        st.markdown('</div>', unsafe_allow_html=True)
+        # Histórico
+        if len(chamados) > 1:
+            st.subheader('Histórico de Chamados')
+            for idx, row in chamados.iloc[1:].iterrows():
+                st.markdown("<div class='card'>", unsafe_allow_html=True)
+                st.markdown(f"- {row['motorista']} (Senha: {row['senha']}) às {row['chamado_em'].strftime('%H:%M:%S')}")
+                st.markdown('</div>', unsafe_allow_html=True)
+else:
+    st.warning('Selecione um modo válido no sidebar.')
