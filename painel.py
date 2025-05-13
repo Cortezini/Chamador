@@ -10,6 +10,10 @@ from pathlib import Path
 
 # ================ CONFIGURAÇÕES GLOBAIS ================
 CONFIG = {
+    'colors':{
+        'primary': '#FF5733',
+        'secondary': '#C70039',
+    },
     'page_title': 'Painel BDM',
     'page_icon': 'assets/bdm.ico',
     'layout': 'wide',
@@ -19,6 +23,7 @@ CONFIG = {
         'duration': 2,
         'frequency': 440,
         'alert_path': Path('assets/som_alerta.wav')
+        
     },
     'css_file': 'style.css',
     'validations': {
@@ -245,6 +250,7 @@ def render_admin_panel(df: pd.DataFrame):
                     'doca': '',
                     'status': 'Aguardando',
                     'chamado_em': pd.NaT
+                    
                 }
                 
                 df = pd.concat([df, pd.DataFrame([novo_registro])], ignore_index=True)
@@ -323,8 +329,7 @@ def render_yard_panel(df: pd.DataFrame):
 
 # ================ PAINEL MOTORISTA ================
 def render_driver_panel(df: pd.DataFrame):
-    """Interface do Painel do Motorista - Versão Linear"""
-    st.subheader("Chamados em Andamento")
+    """Interface do Painel do Motorista com Layout Aprimorado"""
     chamados = df[df['status'] == 'Chamado'].sort_values('chamado_em', ascending=False)
     
     if chamados.empty:
@@ -334,37 +339,48 @@ def render_driver_panel(df: pd.DataFrame):
     # Último Chamado
     ultimo = chamados.iloc[0]
     with st.container(border=True):
-        cols = st.columns([2, 1, 1, 2])
+        cols = st.columns([3, 1, 1, 2])
         
         # Coluna 1: Informações Básicas
-        cols[0].markdown(f"**Motorista:** {ultimo['motorista']}")
-        cols[0].markdown(f"**Placa:** {ultimo['placa']}")
-        cols[0].markdown(f"**Transportadora:** {ultimo['transportadora']}")
+        cols[0].markdown(f"""
+        **Motorista:** {ultimo['motorista']}<br>
+        **Placa:** {ultimo['placa']}<br>
+        **Transportadora:** {ultimo['transportadora']}
+        """, unsafe_allow_html=True)
         
-        # Coluna 2: Localização
-        cols[1].markdown("### Doca")
-        cols[1].markdown(f"`{ultimo['doca'] or '---'}`")
+        # Coluna 2: Doca com fonte maior
+        cols[1].markdown(f"""
+        <div style="font-size: 24px; color: #0056b3; font-weight: bold;">
+        DOCA<br>
+        {ultimo['doca'] if ultimo['doca'] else '---'}
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Coluna 3: Destino
-        cols[2].markdown("### Destino")
-        cols[2].markdown(f"`{ultimo['destino'] or '---'}`")
+        # Coluna 3: Destino com fonte maior
+        cols[2].markdown(f"""
+        <div style="font-size: 24px; color: #2c3e50; font-weight: bold;">
+        DESTINO<br>
+        {ultimo['destino'] if ultimo['destino'] else '---'}
+        </div>
+        """, unsafe_allow_html=True)
         
         # Coluna 4: Temporal
-        cols[3].markdown("### Horário")
-        cols[3].markdown(f"{ultimo['chamado_em'].strftime('%d/%m/%Y')}")
-        cols[3].markdown(f"**{ultimo['chamado_em'].strftime('%H:%M')}**")
+        cols[3].markdown(f"""
+        **Data:** {ultimo['chamado_em'].strftime('%d/%m/%Y')}<br>
+        **Horário:** {ultimo['chamado_em'].strftime('%H:%M')}
+        """, unsafe_allow_html=True)
 
     # Histórico
     st.divider()
-    st.markdown("### Registro de Chamadas Anteriores")
+    st.markdown("### Histórico de Chamadas")
     for idx, row in chamados.iloc[1:].iterrows():
         with st.container(border=True):
             cols = st.columns([3, 1, 1, 2])
             
             cols[0].markdown(f"**{row['motorista']}**")
-            cols[1].markdown(f"Doca: `{row['doca']}`")
-            cols[2].markdown(f"Destino: `{row['destino']}`")
-            cols[3].markdown(f"Chamado: {row['chamado_em'].strftime('%d/%m %H:%M')}")
+            cols[1].markdown(f"**Doca:** `{row['doca'] if pd.notna(row['doca']) and row['doca'] else '---'}`")
+            cols[2].markdown(f"**Destino:** `{row['destino'] if pd.notna(row['destino']) and row['destino'] else '---'}`")
+            cols[3].markdown(f"_{pd.to_datetime(row['chamado_em']).strftime('%d/%m %H:%M')}_")
 
 # ================ EXECUÇÃO PRINCIPAL ================
 def main():
