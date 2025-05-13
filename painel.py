@@ -4,7 +4,7 @@ import numpy as np
 from datetime import datetime
 from scipy.io.wavfile import write
 import os
-import random
+import base64
 
 # ----- Configurações -----
 st.set_page_config(page_title='Painel BDM', layout='wide', page_icon='assets/bdm.ico')  # DEVE SER O PRIMEIRO COMANDO
@@ -16,7 +16,6 @@ if "som_ativado" not in st.session_state:
     st.session_state["som_ativado"] = True
 if "auto_update" not in st.session_state:
     st.session_state["auto_update"] = False
-
 
 # ----- Estilo customizado com CSS -----
 custom_css = '''
@@ -103,9 +102,6 @@ if auto_update:
     st.experimental_rerun()
 
 # ----- Título -----
-
-import base64
-
 def get_image_base64(path):
     with open(path, "rb") as f:
         data = f.read()
@@ -119,8 +115,6 @@ st.markdown(f'''
     Painel de Chamadas BDM
 </div>
 ''', unsafe_allow_html=True)
-
-
 
 df = carregar_dados()
 
@@ -205,5 +199,5 @@ else:
     # Som apenas para o primeiro da fila
     if not st.session_state["som_tocado"]:
         if st.session_state["som_ativado"]:
-            st.audio(som_ativo, format="audio/wav")
+            tocar_som()
         st.session_state["som_tocado"] = True
