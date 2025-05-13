@@ -1,207 +1,460 @@
-import numpy as np
 import streamlit as st
 import pandas as pd
-from datetime import datetime
+import numpy as np
+import re
 import os
-import pygame
-import random
+import base64
+from datetime import datetime, timedelta
+from scipy.io.wavfile import write
+from pathlib import Path
 
-# Inicializa o mixer do pygame apenas uma vez
-pygame.mixer.init()
+# ================ CONFIGURAÇÕES GLOBAIS ================
+CONFIG = {
+    'colors': {
+        'primary': '#FF5733',
+        'secondary': '#C70039',
+        'text': '#2c3e50',
+        'background': '#f8f9fa'
+    },
+    'page_title': 'Painel BDM',
+    'page_icon': 'assets/bdm.ico',
+    'layout': 'wide',
+    'data_file': 'chamados.csv',
+    'sound_settings': {
+        'sample_rate': 44100,
+        'duration': 2,
+        'frequency': 440,
+        'alert_path': Path('assets/som_alerta.wav')   
+    },
+    'css_file': 'style.css',
+    'validations': {
+        'phone_regex': r'^\(\d{2}\) \d{4,5}-\d{4}$',
+        'plate_regex': r'^[A-Za-z]{3}[- ]?[\dA-Za-z]{4}$',
+        'password_regex': r'^\d{3}$',
+        'name_regex': r'^[A-Za-zÀ-ÿ\s]{5,}$'
+    }
+}
 
-# Parâmetros do som
-SAMPLE_RATE = 44100  # Hz
-DURATION = 2         # segundos
-FREQUENCY = 440      # Hz (nota Lá)
-SOM_ALERTA = "som_alerta.wav"  # Arquivo de som para chamada
+# ================ INICIALIZAÇÃO DO SESSION STATE ================
+SESSION_DEFAULTS = {
+    'last_update': datetime.now(),
+    'last_call_time': None,
+    'sound_played': False,
+    'som_ativado': True,
+    'auto_update': False,
+    'current_mode': None
+}
 
-# Caminho relativo para o som amigável
-SOM_AMIGAVEL = os.path.join("assets", "chamada.mp3")
+for key, value in SESSION_DEFAULTS.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
 
-# Lista de músicas para IA escolher aleatoriamente
-MUSICAS = [
-    "C:\Users\bandm\Documents\Painel Chamador\chamada.mp3.mp3"
-]
-
-# Configuração da página
-st.set_page_config(page_title="Sistema de Chamadas", layout="wide")
-st.title("🚛 Sistema de Chamadas de Motoristas")
-
-# Constantes
-ARQUIVO_CSV = "chamados.csv"
-
-# Estado inicial da sessão
-if "modo" not in st.session_state:
-    st.session_state["modo"] = "Painel Motorista"  # Define o Painel dos Motoristas como padrão
-if "som_ativado" not in st.session_state:
-    st.session_state["som_ativado"] = True  # Som inicialmente desativado
-if "pilha_chamados" not in st.session_state:
-    st.session_state["pilha_chamados"] = []  # Pilha que guarda os motoristas chamados
-
-# Função para gerar o som de alerta se o arquivo ainda não existir
-def gerar_som_alerta():
-    if not os.path.exists(SOM_ALERTA):
-        t = np.linspace(0, DURATION, int(SAMPLE_RATE * DURATION), False)
-        sine_wave = 0.5 * np.sin(2 * np.pi * FREQUENCY * t)
-        audio_data = np.int16(sine_wave * 32767)
-        os.write(SOM_ALERTA, SAMPLE_RATE, audio_data)
-
-# Função para tocar o som amigável
-def tocar_som_amigavel():
-    if os.path.exists(SOM_AMIGAVEL):
-        pygame.mixer.music.load(SOM_AMIGAVEL)  # Carrega o arquivo de áudio
-        pygame.mixer.music.play()  # Toca o som
-    else:
-        st.error("Arquivo de som amigável não encontrado!")
-
-# Função para tocar música aleatória
-def tocar_musica_aleatoria():
-    musica_escolhida = random.choice(MUSICAS)  # Seleciona uma música aleatoriamente
-    if os.path.exists(musica_escolhida):
-        pygame.mixer.music.load(musica_escolhida)  # Carrega a música escolhida
-        pygame.mixer.music.play()  # Toca a música
-    else:
-        st.error(f"Música {musica_escolhida} não encontrada!")
-
-# Funções auxiliares
-def carregar_dados():
-    """Carrega os dados do arquivo CSV ou retorna um DataFrame vazio."""
-    try:
-        df = pd.read_csv(ARQUIVO_CSV)
-        if "chamado_em" in df.columns:
-            df["chamado_em"] = pd.to_datetime(df["chamado_em"], errors="coerce")
-        else:
-            df["chamado_em"] = pd.NaT
-    except FileNotFoundError:
-        df = pd.DataFrame(columns=["motorista", "destino", "doca", "status", "chamado_em"])
-        salvar_dados(df)
-    return df
-
-def salvar_dados(df):
-    """Salva os dados no arquivo CSV."""
-    try:
-        df.to_csv(ARQUIVO_CSV, index=False)
-    except Exception as e:
-        st.error(f"Erro ao salvar os dados: {e}")
-
-def alternar_som(ativar: bool):
-    """Alterna o estado do som."""
-    st.session_state["som_ativado"] = ativar
-
-# Seleção de modo
-modo_atual = st.sidebar.radio(
-    "Selecione o modo de uso:",
-    ["Painel ADM", "Painel Motorista"],
-    key="modo"
-)
-
-# Atualiza o estado do modo ao alterar no sidebar
-if modo_atual != st.session_state["modo"]:
-    st.session_state["modo"] = modo_atual
-    st.rerun()
-
-# -------------------- PAINEL ADM --------------------
-if st.session_state["modo"] == "Painel ADM":
-    st.header("📋 Painel Administrativo")
-    df = carregar_dados()
-
-    # Removendo a função de chamada do motorista por nome
-    st.subheader("🚚 Lista de Motoristas")
-    if not df.empty:
-        for i, row in df.iterrows():
-            col1, col2, col3, col4, col5 = st.columns([3, 3, 2, 2, 2])
-            col1.markdown(f"**{row['motorista']}**")
-            col2.write(f"Destino: {row['destino']}")
-            col3.write(f"Doca: {row['doca']}")
-            col4.write(f"Status: {row['status']}")
-            if col5.button(f"🔔 Chamar", key=f"chamar_{i}"):
-                # Chama o motorista e armazena na pilha
-                st.session_state["pilha_chamados"] = [row["motorista"]]  # Apenas o último chamado
-                df.at[i, "status"] = "Chamado"
-                df.at[i, "chamado_em"] = datetime.now()
-                salvar_dados(df)
-                st.success(f"Motorista {row['motorista']} chamado!")
-                if st.session_state["som_ativado"]:
-                    tocar_som_amigavel()
-                # Toca música aleatória
-                tocar_musica_aleatoria()
-                st.rerun()
-    else:
-        st.info("Nenhum motorista cadastrado ainda.")
-
-    st.subheader("➕ Adicionar Motorista")
-    with st.form("form_add"):
-        nome = st.text_input("Nome do motorista", key="nome_input")
-        destino = st.text_input("Destino", key="destino_input")
-        doca = st.text_input("Doca", key="doca_input")
-        enviar = st.form_submit_button("Adicionar")
-
-        if enviar:
-            if nome and destino and doca:
-                df = carregar_dados()
-                if nome in df["motorista"].values:
-                    st.error("Motorista já registrado!")
-                else:
-                    novo = {
-                        "motorista": nome,
-                        "destino": destino,
-                        "doca": doca,
-                        "status": "Aguardando",
-                        "chamado_em": pd.NaT,
-                    }
-                    df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
-                    salvar_dados(df)
-                    st.success("Motorista adicionado com sucesso!")
-                    st.rerun()
-            else:
-                st.error("Preencha todos os campos.")
-
-# -------------------- PAINEL MOTORISTA --------------------
-else:
-    st.header("📣 Painel do Motorista")
+# ================ FUNÇÕES DE UTILIDADE ================
+def setup_page():
+    """Configurações iniciais da página"""
+    st.set_page_config(
+        page_title=CONFIG['page_title'],
+        layout=CONFIG['layout'],
+        page_icon=CONFIG['page_icon']
+    )
     
-    # Tela amigável para o último motorista chamado
-    if st.session_state["pilha_chamados"]:
-        motorista_chamado = st.session_state["pilha_chamados"][0]
-        # Painel amigável visual
-        with st.container():
-            st.markdown(
-                f"""
-                <div style="border-radius: 10px; padding: 10px; background-color: #f0f8ff; border: 2px solid #00bcd4; text-align: center;">
-                    <h2 style="color: #00bcd4;">Último Motorista Chamado</h2>
-                    <p style="font-size: 1.5em; font-weight: bold; color: #00bcd4;">{motorista_chamado}</p>
-                </div>
-                """,
-                unsafe_allow_html=True
+    Path('assets').mkdir(exist_ok=True)
+    load_external_css(CONFIG['css_file'])
+    ensure_alert_sound()
+
+def load_external_css(file_path: str):
+    """Carrega CSS externo"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
+            css = f.read()
+        st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
+    except FileNotFoundError:
+        st.error(f"Arquivo de estilo não encontrado: {file_path}")
+
+# ================ GERENCIAMENTO DE ÁUDIO ================
+def ensure_alert_sound():
+    """Garante a existência do arquivo de som"""
+    sound_path = CONFIG['sound_settings']['alert_path']
+    if not sound_path.exists():
+        generate_alert_sound()
+
+def generate_alert_sound():
+    """Gera o arquivo de som"""
+    settings = CONFIG['sound_settings']
+    t = np.linspace(0, settings['duration'], int(settings['sample_rate'] * settings['duration']), False)
+    wave = 0.5 * np.sin(2 * np.pi * settings['frequency'] * t)
+    audio = np.int16(wave * 32767)
+    write(str(settings['alert_path']), settings['sample_rate'], audio)
+
+def play_alert_sound():
+    """Reproduz o som de alerta uma única vez por chamado"""
+    if st.session_state.som_ativado and not st.session_state.sound_played:
+        try:
+            with open(CONFIG['sound_settings']['alert_path'], 'rb') as f:
+                audio_bytes = f.read()
+                st.audio(audio_bytes, format='audio/wav', autoplay=True)
+                st.session_state.sound_played = True
+        except Exception as e:
+            st.error(f"Falha ao reproduzir som: {str(e)}")
+
+# ================ GERENCIAMENTO DE DADOS ================
+def load_data() -> pd.DataFrame:
+    """Carrega ou inicializa os dados"""
+    columns = [
+        'motorista', 'contato', 'transportadora', 'senha', 'placa',
+        'cliente', 'vendedor', 'destino', 'doca', 'status', 'chamado_em'
+    ]
+    
+    try:
+        df = pd.read_csv(
+            CONFIG['data_file'],
+            parse_dates=['chamado_em'],
+            dtype={col: str for col in columns if col != 'chamado_em'}
+        )
+        df['doca'] = df['doca'].fillna('')
+        df['destino'] = df['destino'].fillna('')
+        return df
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        return pd.DataFrame(columns=columns)
+    except Exception as e:
+        st.error(f"Erro ao carregar dados: {str(e)}")
+        return pd.DataFrame(columns=columns)
+
+def save_data(df: pd.DataFrame):
+    """Salva os dados atualizados"""
+    try:
+        df.to_csv(CONFIG['data_file'], index=False)
+    except Exception as e:
+        st.error(f"Erro ao salvar dados: {str(e)}")
+
+# ================ COMPONENTES DA INTERFACE ================
+def render_header():
+    """Renderiza o cabeçalho com ícone correto"""
+    try:
+        # Converter o ícone para base64
+        with open(CONFIG['page_icon'], "rb") as f:
+            icon_data = base64.b64encode(f.read()).decode()
+        
+        st.markdown(f'''
+            <div class='header'>
+                <img src="data:image/x-icon;base64,{icon_data}" width="30" style="vertical-align: middle;">
+                Painel de Chamadas BDM
+            </div>
+        ''', unsafe_allow_html=True)
+        
+    except FileNotFoundError:
+        st.error("Ícone não encontrado em: {}".format(CONFIG['page_icon']))
+        st.markdown('''
+            <div class='header'>
+                Painel de Chamadas BDM
+            </div>
+        ''', unsafe_allow_html=True)
+
+def render_controls() -> dict:
+    """Renderiza os controles da sidebar"""
+    with st.sidebar:
+        st.title('Controles')
+        return {
+            'modo': st.selectbox('Modo', ['Painel ADM', 'Painel Pátio', 'Painel Motorista']),
+            'som_ativado': st.checkbox('Som Ativo', st.session_state.som_ativado),
+            'auto_update': st.checkbox('Auto Refresh (15s)', st.session_state.auto_update)
+        }
+
+# ================ PAINEL ADMINISTRATIVO ================
+def render_admin_panel(df: pd.DataFrame):
+    """Interface do Painel Administrativo"""
+    st.subheader('Gestão de Motoristas')
+    
+    with st.expander('📊 Estatísticas Operacionais'):
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Cadastrados", len(df))
+        col2.metric("Aguardando", len(df[df['status'] == 'Aguardando']))
+        col3.metric("Em Operação", len(df[df['status'].isin(['Chamado', 'Em Progresso'])]))
+
+    with st.form("Novo Motorista", clear_on_submit=True):
+        st.markdown("**Dados Obrigatórios** (*)")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            motorista = st.text_input(
+                'Nome Completo*',
+                placeholder="Ex: João da Silva"
             )
-    else:
-        st.info("Nenhum motorista foi chamado ainda.")
+            
+            contato = st.text_input(
+                'Contato*', 
+                max_chars=15,
+                placeholder="(XX) 99999-9999"
+            )
+            
+            placa = st.text_input(
+                'Placa do Veículo*',
+                max_chars=7,
+                placeholder="AAA0A00"
+            )
 
-    som_col1, som_col2 = st.columns([4, 1])
-    if st.session_state["som_ativado"]:
-        with som_col1:
-            st.success("🔊 Som ativado. Você será alertado quando chamado.")
-        with som_col2:
-            if st.button("🔇 Desativar Som"):
-                alternar_som(False)
-    else:
-        with som_col1:
-            st.info("🔇 Som desativado. Ative para ouvir o alerta.")
-        with som_col2:
-            if st.button("🔊 Ativar Som"):
-                alternar_som(True)
+        with col2:
+            senha = st.text_input(
+                'Senha de Acesso',
+                max_chars=3,
+                placeholder="123"
+            )
+            
+            transportadora = st.text_input(
+                'Transportadora*',
+                placeholder="Nome da transportadora"
+            )
+            
+            cliente = st.text_input(
+                'Cliente',
+                placeholder="Destinatário da carga"
+            )
 
+        vendedor = st.text_input('Vendedor Responsável')
 
-    st.subheader("🔍 Procurar seu nome")
-    nome_busca = st.text_input("Digite seu nome:")
-    if nome_busca:
-        resultados = [["motorista"].str.contains(nome_busca, case=False, na=False)]
-        if not resultados.empty:
-            st.table(resultados[["motorista", "destino", "doca", "status", "chamado_em"]])
-            for _, row in resultados.iterrows():
-                if row["status"] == "Chamado" and st.session_state["som_ativado"]:
-                    tocar_som_amigavel()
-        else:
-            st.warning("Motorista não encontrado.")
+        if st.form_submit_button('Cadastrar Motorista'):
+            errors = []
+            valid = CONFIG['validations']
+
+            if not motorista or not re.match(valid['name_regex'], motorista, re.IGNORECASE):
+                errors.append("Nome inválido (mínimo 5 caracteres alfabéticos)")
+                
+            if not contato or not re.match(valid['phone_regex'], contato):
+                errors.append("Formato de contato inválido (use (XX) XXXX-XXXX)")
+                
+            if not placa or not re.fullmatch(valid['plate_regex'], placa.upper().replace(' ', '').replace('-', ''), re.IGNORECASE):
+                errors.append("Placa inválida (formato incorreto)")
+                
+            if senha and not re.fullmatch(valid['password_regex'], senha):
+                errors.append("Senha deve conter exatamente 3 dígitos")
+
+            if errors:
+                for error in errors:
+                    st.error(error)
+            else:
+                novo_registro = {
+                    'motorista': motorista.title(),
+                    'contato': contato,
+                    'transportadora': transportadora.strip().title(),
+                    'senha': senha or 'N/A',
+                    'placa': placa.upper().replace('-', ''),
+                    'cliente': cliente.title() if cliente else 'Não informado',
+                    'vendedor': vendedor.title() if vendedor else 'Não informado',
+                    'destino': '',
+                    'doca': '',
+                    'status': 'Aguardando',
+                    'chamado_em': pd.NaT
+                }
+                
+                df = pd.concat([df, pd.DataFrame([novo_registro])], ignore_index=True)
+                save_data(df)
+                st.success('Cadastro realizado com sucesso!')
+                st.balloons()
+
+    st.divider()
+    st.dataframe(
+        df[['motorista', 'placa', 'transportadora', 'status']],
+        use_container_width=True,
+        column_config={
+            "status": st.column_config.SelectboxColumn(
+                "Status",
+                options=["Aguardando", "Chamado", "Em Progresso", "Finalizado"],
+                default="Aguardando"
+            )
+        }
+    )
+
+# ================ PAINEL PÁTIO ================
+def render_yard_panel(df: pd.DataFrame):
+    """Interface de Controle Operacional"""
+    st.subheader("Controle de Docas")
+    
+    # Mostrar operações em andamento
+    operacoes_ativas = df[df['status'].isin(['Chamado', 'Em Progresso'])]
+    
+    if not operacoes_ativas.empty:
+        st.markdown("### Operações em Andamento")
+        for idx, row in operacoes_ativas.iterrows():
+            with st.container(border=True):
+                cols = st.columns([3, 1, 1, 2, 2])
+                
+                cols[0].markdown(f"""
+                **Motorista:** {row['motorista']}  
+                **Transportadora:** {row['transportadora']}  
+                **Placa:** `{row['placa']}`
+                """)
+                
+                cols[1].markdown(f"**Doca:**  \n`{row['doca'] or '---'}`")
+                cols[2].markdown(f"**Destino:**  \n`{row['destino'] or '---'}`")
+                
+                with cols[3]:
+                    nova_doca = st.text_input(
+                        "Nova Doca",
+                        value=row['doca'],
+                        key=f'nova_doca_{idx}',
+                        placeholder="Nº doca"
+                    )
+                    
+                with cols[4]:
+                    novo_destino = st.text_input(
+                        "Novo Destino",
+                        value=row['destino'],
+                        key=f'novo_destino_{idx}',
+                        placeholder="Localização"
+                    )
+                
+                col_btn1, col_btn2 = st.columns(2)
+                with col_btn1:
+                    if st.button("🔄 Atualizar", key=f'update_{idx}'):
+                        df.at[idx, 'doca'] = nova_doca
+                        df.at[idx, 'destino'] = novo_destino
+                        df.at[idx, 'status'] = 'Em Progresso'
+                        save_data(df)
+                        st.rerun()
+                
+                with col_btn2:
+                    if st.button("✅ Finalizar", key=f'finish_{idx}', type='primary'):
+                        df.at[idx, 'status'] = 'Finalizado'
+                        save_data(df)
+                        st.rerun()
+
+    # Mostrar motoristas aguardando
+    st.markdown("### Novos Chamados")
+    aguardando = df[df['status'] == 'Aguardando']
+    
+    if aguardando.empty:
+        st.info('Nenhum motorista aguardando')
+        return
+
+    for idx, row in aguardando.iterrows():
+        with st.container(border=True):
+            cols = st.columns([3, 1, 1, 2])
+            
+            cols[0].markdown(f"""
+            **Motorista:** {row['motorista']}  
+            **Transportadora:** {row['transportadora']}
+            """)
+            
+            cols[1].metric("Placa", row['placa'])
+            cols[2].metric("Senha", row['senha'])
+            
+            with cols[3]:
+                doca = st.text_input(
+                    "Doca Inicial",
+                    key=f'doca_{idx}',
+                    placeholder="Nº doca"
+                )
+                destino = st.text_input(
+                    "Destino Inicial",
+                    key=f'dest_{idx}',
+                    placeholder="Localização"
+                )
+                
+                if st.button("▶️ Iniciar Operação", key=f'start_{idx}'):
+                    df.at[idx, 'status'] = 'Chamado'
+                    df.at[idx, 'chamado_em'] = datetime.now()
+                    df.at[idx, 'doca'] = doca
+                    df.at[idx, 'destino'] = destino
+                    save_data(df)
+                    st.rerun()
+
+# ================ PAINEL MOTORISTA ================
+def render_driver_panel(df: pd.DataFrame):
+    """Interface de Informações para Motoristas"""
+    st.subheader("Painel de Orientação")
+    
+    # Verificar operações ativas
+    operacoes = df[df['status'].isin(['Chamado', 'Em Progresso'])].sort_values('chamado_em', ascending=False)
+    
+    if operacoes.empty:
+        st.info('Nenhuma operação ativa no momento')
+        st.session_state.sound_played = False
+        return
+
+    # Verificar novo chamado
+    current_call = operacoes.iloc[0]['chamado_em']
+    if st.session_state.last_call_time != current_call:
+        st.session_state.last_call_time = current_call
+        st.session_state.sound_played = False
+    
+    if not st.session_state.sound_played:
+        play_alert_sound()
+        st.session_state.sound_played = True
+
+    # Exibir operação atual
+    operacao = operacoes.iloc[0]
+    with st.container(border=True):
+        cols = st.columns([2, 1, 1, 2])
+        
+        cols[0].markdown(f"""
+        ### {operacao['motorista']}
+        **Placa:** {operacao['placa']}  
+        **Transportadora:** {operacao['transportadora']}
+        """)
+        
+        cols[1].markdown(f"""
+        <div style="font-size:26px; color:{CONFIG['colors']['primary']}; 
+                    font-weight:bold; text-align:center;">
+        DOCA<br>
+        {operacao['doca'] or '---'}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        cols[2].markdown(f"""
+        <div style="font-size:26px; color:{CONFIG['colors']['text']}; 
+                    font-weight:bold; text-align:center;">
+        DESTINO<br>
+        {operacao['destino'] or '---'}
+        </div>
+        """, unsafe_allow_html=True)
+        
+        cols[3].markdown(f"""
+        **Início da Operação:**  
+        {operacao['chamado_em'].strftime('%d/%m/%Y %H:%M')}
+        """)
+
+# ================ CONTROLE DE ATUALIZAÇÃO ================
+def handle_auto_refresh():
+    """Gerencia a atualização automática com intervalo de 15 segundos"""
+    if st.session_state.auto_update and st.session_state.current_mode in ['Painel Pátio', 'Painel Motorista']:
+        now = datetime.now()
+        elapsed = (now - st.session_state.last_update).total_seconds()
+        
+        if elapsed >= 15:
+            st.session_state.last_update = now
+            st.rerun()
+
+# ================ EXECUÇÃO PRINCIPAL ================
+def main():
+    setup_page()
+    render_header()
+    
+    controls = render_controls()
+    st.session_state.current_mode = controls['modo']
+    df = load_data()
+    
+    st.session_state.update({
+        'som_ativado': controls['som_ativado'],
+        'auto_update': controls['auto_update']
+    })
+
+    if controls['modo'] == 'Painel ADM':
+        render_admin_panel(df)
+    elif controls['modo'] == 'Painel Pátio':
+        render_yard_panel(df)
     else:
-        st.info("Digite seu nome acima para verificar chamadas.")
+        render_driver_panel(df)
+
+    handle_auto_refresh()
+    
+    # Exibir status de atualização
+    if st.session_state.auto_update and st.session_state.current_mode in ['Painel Pátio', 'Painel Motorista']:
+        st.markdown(f"""
+        <div class='auto-update-status'>
+            Última atualização: {datetime.now().strftime('%H:%M:%S')}
+        </div>
+        """, unsafe_allow_html=True)
+
+if __name__ == '__main__':
+    main()

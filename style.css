@@ -357,3 +357,46 @@ h3 {
     to { transform: translateX(0); }
 }
 
+/* ================ FEEDBACK NOTIFICAÇÕES ================ */
+.stAlert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    min-width: 300px;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    animation: slideIn 0.3s ease-out;
+    border-left: 4px solid transparent;
+}
+
+.stAlert .alert-content {
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.success-alert {
+    background: #d4edda;
+    border-color: #28a745;
+    color: #155724;
+}
+
+.error-alert {
+    background: #f8d7da;
+    border-color: #dc3545;
+    color: #721c24;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* Garantir visibilidade sobre outros elementos */
+.stAlert {
+    z-index: 1000 !important;
+}
+
