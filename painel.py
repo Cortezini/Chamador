@@ -52,7 +52,7 @@ st.markdown(f'<style>{custom_css}</style>', unsafe_allow_html=True)
 # ----- Parâmetros de som e arquivo -----
 SAMPLE_RATE, DURATION, FREQUENCY = 44100, 2, 440
 ALERT_PATH = os.path.join('assets', 'alert.wav')
-MUSIC_LIST = [os.path.join('assets', 'chamada.mp3.mp3')]  # Atualizado para o nome correto
+MUSIC_LIST = [os.path.join('assets', 'som_alerta.wav')]  # Atualizado para o nome correto
 DATA_CSV = 'chamados.csv'
 
 # ----- Funções de áudio -----
@@ -67,7 +67,7 @@ def tocar_som():
     """Toca o som de chamada."""
     if os.path.exists(MUSIC_LIST[0]):  # Verifica se o arquivo existe
         with open(MUSIC_LIST[0], 'rb') as f:
-            st.audio(f.read(), format='audio/mp3')
+            st.audio(f.read(), format='audio/wav')
     else:
         st.error("Erro: O arquivo de som 'chamada.mp3' não foi encontrado no diretório 'assets'.")
 
