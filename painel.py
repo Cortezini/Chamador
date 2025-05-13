@@ -17,6 +17,7 @@ if "som_ativado" not in st.session_state:
 if "auto_update" not in st.session_state:
     st.session_state["auto_update"] = False
 
+
 # ----- Estilo customizado com CSS -----
 custom_css = '''
 :root {
@@ -102,6 +103,14 @@ if auto_update:
     st.experimental_rerun()
 
 # ----- Título -----
+
+import base64
+
+def get_image_base64(path):
+    with open(path, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
 st.markdown('''
 <div class='header'>
     <img src="assets/bdm.ico" width="30" style="vertical-align: middle; margin-right: 10px;">
