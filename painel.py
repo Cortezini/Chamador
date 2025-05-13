@@ -44,7 +44,7 @@ st.markdown(f'<style>{custom_css}</style>', unsafe_allow_html=True)
 # ----- Parâmetros de som e arquivo -----
 SAMPLE_RATE, DURATION, FREQUENCY = 44100, 2, 440
 ALERT_PATH = os.path.join('assets', 'alert.wav')
-MUSIC_LIST = [os.path.join('assets', 'chamada.mp3')]
+MUSIC_LIST = [os.path.join('assets', 'chamada.mp3')]  # Atualizado para o nome correto
 DATA_CSV = 'chamados.csv'
 
 # ----- Funções de áudio -----
@@ -56,15 +56,12 @@ def gerar_som():
         write(ALERT_PATH, SAMPLE_RATE, audio)
 
 def tocar_som():
-    """Toca o som de alerta, gerando-o caso não exista."""
-    if not os.path.exists(ALERT_PATH):
-        st.warning("O arquivo de som não foi encontrado. Gerando som de alerta automaticamente...")
-        gerar_som()  # Gera o som automaticamente se não existir
-    try:
-        with open(ALERT_PATH, 'rb') as f:
-            st.audio(f.read(), format='audio/wav')
-    except FileNotFoundError:
-        st.error("Erro: O arquivo de som não foi encontrado e não pôde ser gerado.")
+    """Toca o som de chamada."""
+    if os.path.exists(MUSIC_LIST[0]):  # Verifica se o arquivo existe
+        with open(MUSIC_LIST[0], 'rb') as f:
+            st.audio(f.read(), format='audio/mp3')
+    else:
+        st.error("Erro: O arquivo de som 'chamada.mp3' não foi encontrado no diretório 'assets'.")
 
 # ----- Leitura e gravação de dados -----
 def carregar_dados():
