@@ -318,3 +318,25 @@ h3 {
 [data-testid="stVerticalBlockBorderWrapper"] {
     padding: 1.5rem !important;
 }
+
+.stButton>button {
+    width: 100%;
+    margin: 0.25rem 0;
+}
+
+.status-badge {
+    padding: 0.5rem;
+    border-radius: 5px;
+    font-weight: bold;
+    text-align: center;
+}
+
+.progress-status {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.finished-status {
+    background: #d4edda;
+    color: #155724;
+}

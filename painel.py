@@ -10,9 +10,11 @@ from pathlib import Path
 
 # ================ CONFIGURAÇÕES GLOBAIS ================
 CONFIG = {
-    'colors':{
+    'colors': {
         'primary': '#FF5733',
         'secondary': '#C70039',
+        'text': '#2c3e50',
+        'background': '#f8f9fa'
     },
     'page_title': 'Painel BDM',
     'page_icon': 'assets/bdm.ico',
@@ -22,8 +24,7 @@ CONFIG = {
         'sample_rate': 44100,
         'duration': 2,
         'frequency': 440,
-        'alert_path': Path('assets/som_alerta.wav')
-        
+        'alert_path': Path('assets/som_alerta.wav')   
     },
     'css_file': 'style.css',
     'validations': {
@@ -36,7 +37,8 @@ CONFIG = {
 
 # ================ INICIALIZAÇÃO DO SESSION STATE ================
 SESSION_DEFAULTS = {
-    'som_tocado': False,
+    'last_call': None,
+    'sound_played': False,
     'som_ativado': True,
     'auto_update': False
 }
@@ -96,7 +98,8 @@ def play_alert_sound():
     if st.session_state.som_ativado:
         try:
             with open(CONFIG['sound_settings']['alert_path'], 'rb') as f:
-                st.audio(f.read(), format='audio/wav')
+                audio_bytes = f.read()
+                st.audio(audio_bytes, format='audio/wav', autoplay=True)
         except Exception as e:
             st.error(f"Falha ao reproduzir som: {str(e)}")
 
@@ -109,11 +112,15 @@ def load_data() -> pd.DataFrame:
     ]
     
     try:
-        return pd.read_csv(
+        df = pd.read_csv(
             CONFIG['data_file'],
             parse_dates=['chamado_em'],
             dtype={col: str for col in columns if col != 'chamado_em'}
         )
+        # Garante campos vazios como string
+        df['doca'] = df['doca'].fillna('')
+        df['destino'] = df['destino'].fillna('')
+        return df
     except (FileNotFoundError, pd.errors.EmptyDataError):
         return pd.DataFrame(columns=columns)
     except Exception as e:
@@ -152,87 +159,77 @@ def render_controls() -> dict:
 # ================ PAINEL ADMINISTRATIVO ================
 def render_admin_panel(df: pd.DataFrame):
     """Interface do Painel Administrativo"""
-    st.subheader('Painel Administrativo')
-
-    with st.expander('Estatísticas'):
-        total = len(df)
-        counts = df['status'].value_counts().to_dict()
-        st.metric("Total de Chamados", total)
-        for status, quantidade in counts.items():
-            st.metric(f"Status: {status}", quantidade)
-
-    if st.button('Limpar Todos os Dados', type='primary'):
-        save_data(pd.DataFrame(columns=df.columns))
-        st.rerun()
+    st.subheader('Gestão de Motoristas')
+    
+    with st.expander('📊 Estatísticas Operacionais'):
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Total Cadastrados", len(df))
+        col2.metric("Aguardando", len(df[df['status'] == 'Aguardando']))
+        col3.metric("Em Operação", len(df[df['status'] == 'Chamado']))
 
     with st.form("Novo Motorista", clear_on_submit=True):
-        st.markdown("**Campos Obrigatórios** (*)")
+        st.markdown("**Dados Obrigatórios** (*)")
         
         col1, col2 = st.columns(2)
         
         with col1:
             motorista = st.text_input(
                 'Nome Completo*',
-                placeholder="Ex: João da Silva"
+                placeholder="Ex: João da Silva",
+                help="Nome completo conforme documento oficial"
             )
             
             contato = st.text_input(
                 'Contato*', 
                 max_chars=15,
-                placeholder="(XX) 99999-9999"
+                placeholder="(XX) 99999-9999",
+                help="Número para contato imediato"
             )
             
             placa = st.text_input(
                 'Placa do Veículo*',
                 max_chars=8,
-                placeholder="AAA-0A00 ou ABC1D23"
+                placeholder="AAA0A00",
+                help="Formato Mercosul ou antigo"
             )
 
         with col2:
             senha = st.text_input(
                 'Senha de Acesso',
                 max_chars=3,
-                placeholder="123"
+                placeholder="123",
+                help="3 dígitos numéricos"
             )
             
             transportadora = st.text_input(
                 'Transportadora*',
-                placeholder="Nome completo da transportadora"
-        )  
+                placeholder="Nome completo da empresa",
+                help="Razão social cadastrada"
+            )
             
             cliente = st.text_input(
                 'Cliente',
-                placeholder="Nome do cliente"
+                placeholder="Destinatário da carga",
+                help="Empresa beneficiária"
             )
 
         vendedor = st.text_input('Vendedor Responsável')
 
-        submitted = st.form_submit_button('Adicionar Motorista')
-        
-        if submitted:
+        if st.form_submit_button('Cadastrar Motorista'):
             errors = []
             valid = CONFIG['validations']
 
-            # Validação de campos
-            if not motorista:
-                errors.append("Nome do motorista é obrigatório")
-            elif not re.match(valid['name_regex'], motorista, re.IGNORECASE):
+            if not motorista or not re.match(valid['name_regex'], motorista, re.IGNORECASE):
                 errors.append("Nome inválido (mínimo 5 caracteres alfabéticos)")
-
-            if not contato:
-                errors.append("Contato é obrigatório")
-            elif not re.match(valid['phone_regex'], contato):
+                
+            if not contato or not re.match(valid['phone_regex'], contato):
                 errors.append("Formato de contato inválido (use (XX) XXXX-XXXX)")
-
-            if not placa:
-                errors.append("Placa do veículo é obrigatória")
-            else:
-                cleaned_plate = placa.upper().replace('-', '').replace(' ', '')
-                if not re.fullmatch(valid['plate_regex'], cleaned_plate, re.IGNORECASE):
-                    errors.append("Formato de placa inválido")
-
+                
+            if not placa or not re.fullmatch(valid['plate_regex'], placa.upper().replace(' ', '').replace('-', ''), re.IGNORECASE):
+                errors.append("Placa inválida (formato incorreto)")
+                
             if senha and not re.fullmatch(valid['password_regex'], senha):
-                errors.append("A senha deve conter 3 dígitos numéricos")
+                errors.append("Senha deve conter exatamente 3 dígitos")
 
             if errors:
                 for error in errors:
@@ -241,26 +238,25 @@ def render_admin_panel(df: pd.DataFrame):
                 novo_registro = {
                     'motorista': motorista.title(),
                     'contato': contato,
-                    'transportadora': transportadora if transportadora else 'Não informada',
-                    'senha': senha if senha else 'N/A',
-                    'placa': cleaned_plate,
+                    'transportadora': transportadora.strip().title(),
+                    'senha': senha or 'N/A',
+                    'placa': placa.upper().replace('-', ''),
                     'cliente': cliente.title() if cliente else 'Não informado',
                     'vendedor': vendedor.title() if vendedor else 'Não informado',
                     'destino': '',
                     'doca': '',
                     'status': 'Aguardando',
                     'chamado_em': pd.NaT
-                    
                 }
                 
                 df = pd.concat([df, pd.DataFrame([novo_registro])], ignore_index=True)
                 save_data(df)
-                st.success('Motorista cadastrado com sucesso!')
+                st.success('Cadastro realizado com sucesso!')
                 st.balloons()
 
-    st.write('---')
+    st.divider()
     st.dataframe(
-        df,
+        df[['motorista', 'placa', 'transportadora', 'status']],
         use_container_width=True,
         column_config={
             "status": st.column_config.SelectboxColumn(
@@ -273,114 +269,130 @@ def render_admin_panel(df: pd.DataFrame):
 
 # ================ PAINEL PÁTIO ================
 def render_yard_panel(df: pd.DataFrame):
-    """Interface do Painel do Pátio - Versão Simplificada"""
-    st.subheader("Controle de Operações - Pátio")
-    aguardando = df[df['status'] == 'Aguardando']
+    """Interface de Controle Operacional"""
+    st.subheader("Controle de Docas")
+    
+    with st.expander("➕ Nova Operação", expanded=True):
+        aguardando = df[df['status'] == 'Aguardando']
+        
+        if aguardando.empty:
+            st.info('Nenhum motorista aguardando')
+            return
 
-    if aguardando.empty:
-        st.info('Nenhum motorista aguardando atendimento')
-        return
-
-    for idx, row in aguardando.iterrows():
-        with st.container(border=True):
-            # Cabeçalho do Card
-            cols_header = st.columns([3, 1, 1])
-            cols_header[0].subheader(row['motorista'])
-            cols_header[1].metric("Placa", row['placa'])
-            cols_header[2].metric("Senha", row['senha'])
-            
-            # Corpo do Card
-            with st.form(key=f'form_{idx}'):
-                cols_body = st.columns(2)
+        for idx, row in aguardando.iterrows():
+            with st.container(border=True):
+                cols = st.columns([3, 1, 1, 2])
                 
-                # Coluna Esquerda - Informações
-                with cols_body[0]:
-                    st.markdown(f"**Transportadora:** {row['transportadora']}")
-                    st.markdown(f"**Cliente:** {row['cliente']}")
-                    st.markdown(f"**Vendedor:** {row['vendedor']}")
+                cols[0].markdown(f"""
+                **Motorista:** {row['motorista']}  
+                **Transportadora:** {row['transportadora']}  
+                **Cliente:** {row['cliente']}
+                """)
                 
-                # Coluna Direita - Controles
-                with cols_body[1]:
-                    doca = st.text_input(
-                        "Nº Doca",
-                        value=row['doca'],
-                        key=f'doca_{idx}',
-                        placeholder="Ex: 05",
-                        help="Número da doca designada",
-                        max_chars=3
-                    )
-                    
-                    destino = st.text_input(
-                        "Destino/Unidade",
-                        value=row['destino'],
-                        key=f'dest_{idx}',
-                        placeholder="Ex: Armazém B",
-                        help="Destino final da carga",
-                        max_chars=20
-                    )
-                    
-                    if st.form_submit_button("Confirmar Direcionamento", type='primary'):
-                        df.at[idx, 'status'] = 'Chamado'
-                        df.at[idx, 'chamado_em'] = datetime.now()
-                        df.at[idx, 'doca'] = doca
-                        df.at[idx, 'destino'] = destino
-                        save_data(df)
-                        st.rerun()
+                cols[1].metric("Placa", row['placa'])
+                cols[2].metric("Senha", row['senha'])
+                
+                with cols[3]:
+                    with st.form(key=f'form_{idx}'):
+                        doca = st.text_input(
+                            "Nº Doca",
+                            value='',
+                            key=f'doca_{idx}',
+                            placeholder="Digite o número",
+                            max_chars=3
+                        )
+                        
+                        destino = st.text_input(
+                            "Destino Final",
+                            value='',
+                            key=f'dest_{idx}',
+                            placeholder="Informe o destino",
+                            max_chars=20
+                        )
+                        
+                        if st.form_submit_button("Iniciar Operação", type='primary'):
+                            df.at[idx, 'status'] = 'Chamado'
+                            df.at[idx, 'chamado_em'] = datetime.now()
+                            df.at[idx, 'doca'] = doca
+                            df.at[idx, 'destino'] = destino
+                            save_data(df)
+                            st.session_state.last_call = datetime.now()
+                            st.rerun()
 
 # ================ PAINEL MOTORISTA ================
 def render_driver_panel(df: pd.DataFrame):
-    """Interface do Painel do Motorista com Layout Aprimorado"""
-    chamados = df[df['status'] == 'Chamado'].sort_values('chamado_em', ascending=False)
+    """Interface de Informações para Motoristas"""
+    st.subheader("Painel de Orientação")
     
-    if chamados.empty:
-        st.info('Nenhum chamado ativo no sistema')
+    # Verificar novos chamados
+    current_calls = df[df['status'] == 'Chamado']
+    if not current_calls.empty:
+        latest_call = current_calls.iloc[0]['chamado_em']
+        
+        if st.session_state.last_call != latest_call:
+            play_alert_sound()
+            st.session_state.last_call = latest_call
+            st.session_state.sound_played = True
+    
+    # Exibir informações
+    if current_calls.empty:
+        st.info('Nenhuma operação ativa no momento')
         return
 
-    # Último Chamado
-    ultimo = chamados.iloc[0]
+    operacao = current_calls.iloc[0]
+    
     with st.container(border=True):
-        cols = st.columns([3, 1, 1, 2])
+        cols = st.columns([2, 1, 1, 2])
         
-        # Coluna 1: Informações Básicas
+        # Informações Principais
         cols[0].markdown(f"""
-        **Motorista:** {ultimo['motorista']}<br>
-        **Placa:** {ultimo['placa']}<br>
-        **Transportadora:** {ultimo['transportadora']}
-        """, unsafe_allow_html=True)
+        ### {operacao['motorista']}
+        **Placa:** {operacao['placa']}  
+        **Transportadora:** {operacao['transportadora']}
+        """)
         
-        # Coluna 2: Doca com fonte maior
+        # Doca com destaque
         cols[1].markdown(f"""
-        <div style="font-size: 24px; color: #0056b3; font-weight: bold;">
+        <div style="font-size:26px; color:{CONFIG['colors']['primary']}; 
+                    font-weight:bold; text-align:center;">
         DOCA<br>
-        {ultimo['doca'] if ultimo['doca'] else '---'}
+        {operacao['doca'] or '---'}
         </div>
         """, unsafe_allow_html=True)
         
-        # Coluna 3: Destino com fonte maior
+        # Destino com destaque
         cols[2].markdown(f"""
-        <div style="font-size: 24px; color: #2c3e50; font-weight: bold;">
+        <div style="font-size:26px; color:{CONFIG['colors']['text']}; 
+                    font-weight:bold; text-align:center;">
         DESTINO<br>
-        {ultimo['destino'] if ultimo['destino'] else '---'}
+        {operacao['destino'] or '---'}
         </div>
         """, unsafe_allow_html=True)
         
-        # Coluna 4: Temporal
+        # Detalhes Temporais
         cols[3].markdown(f"""
-        **Data:** {ultimo['chamado_em'].strftime('%d/%m/%Y')}<br>
-        **Horário:** {ultimo['chamado_em'].strftime('%H:%M')}
-        """, unsafe_allow_html=True)
+        **Início da Operação:**  
+        {operacao['chamado_em'].strftime('%d/%m/%Y %H:%M')}
+        """)
 
-    # Histórico
+    # Histórico de Chamados
     st.divider()
-    st.markdown("### Histórico de Chamadas")
-    for idx, row in chamados.iloc[1:].iterrows():
+    st.markdown("### Histórico Recente")
+    
+    historico = df[df['status'] == 'Chamado'].sort_values('chamado_em', ascending=False).iloc[1:]
+    
+    if historico.empty:
+        st.info('Nenhuma operação anterior registrada')
+        return
+
+    for _, row in historico.iterrows():
         with st.container(border=True):
             cols = st.columns([3, 1, 1, 2])
             
             cols[0].markdown(f"**{row['motorista']}**")
-            cols[1].markdown(f"**Doca:** `{row['doca'] if pd.notna(row['doca']) and row['doca'] else '---'}`")
-            cols[2].markdown(f"**Destino:** `{row['destino'] if pd.notna(row['destino']) and row['destino'] else '---'}`")
-            cols[3].markdown(f"_{pd.to_datetime(row['chamado_em']).strftime('%d/%m %H:%M')}_")
+            cols[1].markdown(f"`Doca {row['doca']}`")
+            cols[2].markdown(f"`{row['destino']}`")
+            cols[3].markdown(f"_{row['chamado_em'].strftime('%d/%m %H:%M')}_")
 
 # ================ EXECUÇÃO PRINCIPAL ================
 def main():
@@ -402,7 +414,7 @@ def main():
     else:
         render_driver_panel(df)
 
-    if controls['auto_update']:
+    if controls['auto_update'] and st.session_state.auto_update:
         st.rerun()
 
 if __name__ == '__main__':
