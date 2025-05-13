@@ -1,0 +1,110 @@
+/* assets/style.css */
+:root {
+  --primary: #4e73df;
+  --secondary: #1cc88a;
+  --accent: #36b9cc;
+  --background: #f1f3f5;
+  --card-bg: #ffffff;
+  --text: #2e3341;
+  --text-muted: #6c757d;
+  --radius: 0.75rem;
+  --spacing: 1rem;
+  --font: 'Roboto', sans-serif;
+}
+
+/* Global */
+body, .stApp {
+  background-color: var(--background) !important;
+  color: var(--text) !important;
+  font-family: var(--font) !important;
+  line-height: 1.6;
+}
+h1, h2, h3, h4, h5, h6 {
+  color: var(--primary) !important;
+  margin-bottom: 0.5rem;
+}
+
+/* Sidebar */
+.css-1d391kg {
+  background: var(--primary);
+  padding: var(--spacing);
+}
+.css-1d391kg .stSidebar .sidebar-content {
+  margin-top: 1rem;
+}
+.css-1d391kg .stSelectbox > label,
+.css-1d391kg .stSlider > label,
+.css-1d391kg .stCheckbox > label {
+  color: #fff !important;
+  font-weight: 500;
+}
+.css-1d391kg .stButton > button {
+  background-color: var(--secondary) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: var(--radius) !important;
+  padding: 0.5rem 1rem !important;
+  transition: background-color 0.2s;
+}
+.css-1d391kg .stButton > button:hover {
+  background-color: var(--accent) !important;
+}
+
+/* Cabeçalho principal */
+.header {
+  font-size: 2.2rem;
+  color: var(--primary);
+  margin-bottom: var(--spacing);
+  display: flex;
+  align-items: center;
+}
+
+/* Botões gerais */
+.stButton > button {
+  background-color: var(--primary) !important;
+  color: #fff !important;
+  border: none !important;
+  border-radius: var(--radius) !important;
+  padding: 0.5rem 1rem !important;
+  font-weight: 500;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  transition: background-color 0.2s, transform 0.1s;
+}
+.stButton > button:hover {
+  background-color: var(--accent) !important;
+  transform: translateY(-1px);
+}
+
+/* Container rolável para histórico */
+.history-container {
+  max-height: 500px;       /* ajusta conforme a necessidade */
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Card do destaque (reforça borda e padding) */
+.card-highlight {
+  border-left: 6px solid var(--accent) !important;
+  padding: 1.5rem !important;
+}
+
+/* Card do histórico: layout em grid e hover suave */
+.card-muted {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  align-items: center;
+  gap: 0.5rem !important;
+  background: #fff !important;
+  border-left: 4px solid var(--secondary) !important;
+  padding: 1rem !important;
+  margin-bottom: 0.75rem !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05) !important;
+  transition: background-color 0.2s;
+}
+.card-muted:hover {
+  background-color: #f1f3f5 !important;
+}
+
+
+/* … e assim por diante com todo o resto do seu CSS … */
