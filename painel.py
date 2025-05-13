@@ -55,6 +55,22 @@ ALERT_PATH = os.path.join('assets', 'som_alerta.wav')  # Caminho atualizado para
 MUSIC_LIST = [os.path.join('assets', 'som_alerta.wav')]  # Atualizado para o nome correto
 DATA_CSV = 'chamados.csv'
 
+# Verifica se o diretório 'assets' existe, senão cria
+if not os.path.exists('assets'):
+    os.makedirs('assets')
+
+# Verifica se o arquivo de som existe, senão o gera automaticamente
+if not os.path.exists(ALERT_PATH):
+    print(f"O arquivo {ALERT_PATH} não foi encontrado. Gerando som...")
+    gerar_som()
+
+# Verifica se o arquivo de dados existe, senão cria um arquivo vazio
+if not os.path.exists(DATA_CSV):
+    print(f"O arquivo {DATA_CSV} não foi encontrado. Criando um arquivo vazio...")
+    pd.DataFrame(columns=['motorista', 'contato', 'transportadora', 'senha', 'placa',
+                          'cliente', 'vendedor', 'destino', 'doca', 'status', 'chamado_em']
+                ).to_csv(DATA_CSV, index=False)
+
 # ----- Funções de áudio -----
 def gerar_som():
     """Gera o som de alerta e salva como som_alerta.wav no diretório assets."""
