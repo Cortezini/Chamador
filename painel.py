@@ -111,12 +111,15 @@ def get_image_base64(path):
         data = f.read()
     return base64.b64encode(data).decode()
 
-st.markdown('''
+img_base64 = get_image_base64("assets/bdm.ico")
+
+st.markdown(f'''
 <div class='header'>
-    <img src="assets/bdm.ico" width="30" style="vertical-align: middle; margin-right: 10px;">
+    <img src="data:image/x-icon;base64,{img_base64}" width="30" style="vertical-align: middle; margin-right: 10px;">
     Painel de Chamadas BDM
 </div>
 ''', unsafe_allow_html=True)
+
 
 
 df = carregar_dados()
