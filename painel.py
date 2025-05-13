@@ -145,7 +145,8 @@ if modo == 'Painel ADM':
                 novo = {'motorista': nome, 'contato': contato, 'transportadora': transportadora, 'senha': senha,
                         'placa': placa, 'cliente': cliente, 'vendedor': vendedor,
                         'destino': '', 'doca': '', 'status': 'Aguardando', 'chamado_em': pd.NaT}
-                df = df.append(novo, ignore_index=True)
+                # Atualização com pd.concat
+                df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
                 salvar_dados(df)
                 st.success('Motorista adicionado!')
     st.write('---')
