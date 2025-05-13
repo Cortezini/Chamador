@@ -77,17 +77,29 @@ def tocar_som():
         st.error(f"Erro ao tentar reproduzir o som: {str(e)}")
 # ----- Leitura e gravação de dados -----
 def carregar_dados():
+    """Carrega os dados do CSV ou inicializa um DataFrame vazio se o arquivo não existir."""
     try:
         df = pd.read_csv(DATA_CSV, parse_dates=['chamado_em'])
     except FileNotFoundError:
-        cols = ['motorista','contato','transportadora','senha','placa',
-                'cliente','vendedor','destino','doca','status','chamado_em']
+        # Inicializa um DataFrame vazio se o arquivo não existir
+        cols = ['motorista', 'contato', 'transportadora', 'senha', 'placa',
+                'cliente', 'vendedor', 'destino', 'doca', 'status', 'chamado_em']
         df = pd.DataFrame(columns=cols)
-        df.to_csv(DATA_CSV, index=False)
+        df.to_csv(DATA_CSV, index=False)  # Salva o DataFrame vazio no arquivo
+    except pd.errors.EmptyDataError:
+        # Inicializa um DataFrame vazio se o arquivo estiver vazio
+        cols = ['motorista', 'contato', 'transportadora', 'senha', 'placa',
+                'cliente', 'vendedor', 'destino', 'doca', 'status', 'chamado_em']
+        df = pd.DataFrame(columns=cols)
     return df
 
+
 def salvar_dados(df):
-    df.to_csv(DATA_CSV, index=False)
+    """Salva o DataFrame no arquivo CSV."""
+    if isinstance(df, pd.DataFrame):
+        df.to_csv(DATA_CSV, index=False)
+    else:
+        raise ValueError("O objeto fornecido para salvar não é um DataFrame válido!")
 
 # ----- Sidebar -----
 st.sidebar.title('Controles')
@@ -120,17 +132,26 @@ df = carregar_dados()
 # ----- Painel ADM -----
 if modo == 'Painel ADM':
     st.subheader('Painel Administrativo')
+
+    # Validação de `df`
+    if not isinstance(df, pd.DataFrame):
+        st.error("Erro: Os dados carregados não são um DataFrame válido.")
+        st.stop()
+
     with st.expander('Estatísticas'):
         total = len(df)
         counts = df['status'].value_counts().to_dict()
         st.write(f'Total: **{total}**')
         for k, v in counts.items():
             st.write(f'- {k}: **{v}**')
+
     if st.button('Limpar Tudo'):
         salvar_dados(pd.DataFrame(columns=df.columns))
         st.experimental_rerun()
+
     st.write('---')
     st.subheader('Adicionar Motorista')
+
     with st.form('add'):
         nome = st.text_input('Nome')
         contato = st.text_input('Contato')
@@ -140,15 +161,21 @@ if modo == 'Painel ADM':
         cliente = st.text_input('Cliente')
         vendedor = st.text_input('Vendedor')
         ok = st.form_submit_button('Adicionar')
+
         if ok:
             if nome and contato:
-                novo = {'motorista': nome, 'contato': contato, 'transportadora': transportadora, 'senha': senha,
-                        'placa': placa, 'cliente': cliente, 'vendedor': vendedor,
-                        'destino': '', 'doca': '', 'status': 'Aguardando', 'chamado_em': pd.NaT}
-                # Atualização com pd.concat
+                novo = {
+                    'motorista': nome, 'contato': contato, 'transportadora': transportadora,
+                    'senha': senha, 'placa': placa, 'cliente': cliente, 'vendedor': vendedor,
+                    'destino': '', 'doca': '', 'status': 'Aguardando', 'chamado_em': pd.NaT
+                }
+                # Adiciona a nova linha usando pd.concat
                 df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
                 salvar_dados(df)
-                st.success('Motorista adicionado!')
+                st.success('Motorista adicionado com sucesso!')
+            else:
+                st.error("Por favor, preencha os campos obrigatórios.")
+
     st.write('---')
     st.dataframe(df)
 
