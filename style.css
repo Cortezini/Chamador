@@ -1,203 +1,208 @@
-/* Professional and modern CSS for Streamlit environment */
+/* ================ ABA MOTORISTAS - ESTILOS ESPECÍFICOS ================ */
 
-/* Root variables for unified styling */
-:root {
-  --primary: #0056b3; /* Professional deep blue for primary actions */
-  --secondary: #198754; /* Elegant green for secondary actions */
-  --accent: #0d6efd; /* Bright blue for hover/focus states */
-  --background: #f8f9fa; /* Light gray for a clean and professional background */
-  --card-bg: #ffffff; /* White background for cards */
-  --text: #212529; /* Dark gray for main text */
-  --text-muted: #6c757d; /* Muted gray for secondary text */
-  --radius: 0.5rem; /* Consistent border radius */
-  --spacing: 1rem; /* Standard spacing for padding/margins */
-  --font: 'Inter', sans-serif; /* Modern and readable font */
-  --transition-speed: 0.25s; /* Unified transition duration for animations */
-  --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); /* Subtle shadow for depth */
-  --box-shadow-hover: 0 6px 12px rgba(0, 0, 0, 0.15); /* Enhanced shadow for hover states */
-}
-
-/* Global styles */
-body, .stApp {
-  background-color: var(--background) !important;
-  color: var(--text) !important;
-  font-family: var(--font) !important;
-  line-height: 1.6;
-  margin: 0;
-  padding: 0;
-}
-
-h1, h2, h3, h4, h5, h6 {
-  color: var(--primary) !important;
-  font-weight: 700;
-  margin-bottom: 0.75rem;
-}
-
-p {
-  margin-bottom: var(--spacing);
-  color: var(--text-muted);
-  font-size: 1rem;
-}
-
-/* Sidebar styles */
-.css-1d391kg {
-  background-color: var(--primary) !important;
-  padding: var(--spacing);
-  color: #ffffff !important;
-}
-
-.css-1d391kg .stSidebar .sidebar-content {
-  margin-top: var(--spacing);
-}
-
-.css-1d391kg .stSelectbox > label,
-.css-1d391kg .stSlider > label,
-.css-1d391kg .stCheckbox > label {
-  color: #ffffff !important;
-  font-weight: 600;
-}
-
-.css-1d391kg .stButton > button {
-  background-color: var(--secondary) !important;
-  color: #ffffff !important;
-  border: none;
-  border-radius: var(--radius);
-  padding: 0.5rem 1rem;
-  font-weight: 600;
-  transition: background-color var(--transition-speed), transform var(--transition-speed);
-}
-
-.css-1d391kg .stButton > button:hover {
-  background-color: var(--accent) !important;
-  transform: scale(1.05);
-}
-
-/* Header */
-.header {
-  font-size: 2.5rem;
-  color: var(--primary);
-  margin-bottom: var(--spacing);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  font-weight: 700;
-}
-
-/* Buttons */
-.stButton > button {
-  background-color: var(--primary) !important;
-  color: #ffffff !important;
-  border: none;
-  border-radius: var(--radius);
-  padding: 0.5rem 1rem;
-  font-weight: 600;
-  box-shadow: var(--box-shadow);
-  transition: background-color var(--transition-speed), box-shadow var(--transition-speed), transform var(--transition-speed);
-}
-
-.stButton > button:hover {
-  background-color: var(--accent) !important;
-  box-shadow: var(--box-shadow-hover);
-  transform: translateY(-3px);
-}
-
-/* Scrollable container for history */
-.history-container {
-  max-height: 500px;
-  overflow-y: auto;
-  padding-right: 0.75rem;
-  margin-bottom: var(--spacing);
-  border: 1px solid #dee2e6;
-  border-radius: var(--radius);
-  background-color: var(--card-bg);
-}
-
-/* Highlighted Cards */
-.card-highlight {
-  border-left: 6px solid var(--accent);
+/* Container principal do painel */
+.driver-panel {
+  display: grid;
+  gap: 2rem;
   padding: 1.5rem;
-  background-color: var(--card-bg);
+  background: var(--background);
+}
+
+/* Destaque para último chamado */
+.card-highlight {
+  position: relative;
+  border: none;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+  color: white !important;
+  padding: 2rem;
+  border-radius: calc(var(--radius) * 2);
+  overflow: hidden;
+  animation: pulse-highlight 2s infinite alternate;
+}
+
+@keyframes pulse-highlight {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.01); }
+}
+
+.card-highlight::before {
+  content: "ÚLTIMO CHAMADO";
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 0.5rem 1rem;
+  border-bottom-left-radius: var(--radius);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.card-highlight h3 {
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.card-highlight .badge {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
+  font-size: 0.9rem;
+}
+
+/* Container do histórico */
+.history-container {
+  background: var(--card-bg);
   border-radius: var(--radius);
   box-shadow: var(--box-shadow);
-  margin-bottom: var(--spacing);
-  transition: box-shadow var(--transition-speed), transform var(--transition-speed);
+  padding: 1rem;
 }
 
-.card-highlight:hover {
-  box-shadow: var(--box-shadow-hover);
-  transform: translateY(-2px);
-}
-
-/* Historical Cards */
+/* Cards do histórico */
 .card-muted {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  align-items: center;
-  gap: 0.75rem;
-  background-color: var(--card-bg);
-  border-left: 4px solid var(--secondary);
-  padding: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  padding: 1.25rem;
+  background: var(--card-bg);
+  border: 1px solid rgba(0, 0, 0, 0.05);
   border-radius: var(--radius);
   margin-bottom: 1rem;
-  box-shadow: var(--box-shadow);
-  transition: background-color var(--transition-speed), box-shadow var(--transition-speed);
+  transition: all 0.3s ease;
+  position: relative;
 }
 
 .card-muted:hover {
-  background-color: #f1f3f5;
+  transform: translateX(10px);
   box-shadow: var(--box-shadow-hover);
 }
 
-/* Hide Streamlit's audio player */
-.stAudio {
-  display: none !important;
+/* Status indicators */
+.status-indicator {
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 60%;
+  border-radius: 3px;
+  background: var(--secondary);
 }
 
-/* Expander adjustments */
-.css-1f0t6s6 {
-  display: none !important;
+.status-indicator.expired {
+  background: #dc3545;
 }
 
-/* Input and form elements */
-input, select, textarea {
-  border-radius: var(--radius);
-  border: 1px solid #ced4da;
-  padding: 0.5rem;
-  font-size: 1rem;
+/* Timeline visualization */
+.driver-timeline {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 1rem;
+  padding: 1rem 0;
 }
 
-input:focus, select:focus, textarea:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(0, 86, 179, 0.25);
+.timeline-marker {
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--primary);
+  border-radius: 50%;
+  position: relative;
 }
 
-/* Table styling */
-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-bottom: var(--spacing);
-  font-size: 0.95rem;
+.timeline-marker::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 100%;
+  transform: translateX(-50%);
+  height: calc(100% + 1rem);
+  width: 2px;
+  background: var(--primary);
 }
 
-table th, table td {
-  padding: 0.75rem;
-  text-align: left;
-  border: 1px solid #dee2e6;
+/* Responsividade */
+@media (max-width: 768px) {
+  .card-highlight {
+    padding: 1.5rem;
+  }
+  
+  .card-highlight h3 {
+    font-size: 1.5rem;
+  }
+  
+  .card-muted {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+  
+  .driver-timeline {
+    grid-template-columns: 1fr;
+  }
 }
 
-table th {
-  background-color: #f8f9fa;
-  color: var(--text);
+/* Alertas sonoros visuais */
+.sound-indicator {
+  position: fixed;
+  bottom: 2rem;
+  right: 2rem;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: var(--secondary);
+  animation: sound-pulse 1.5s infinite;
+  display: none;
+}
+
+@keyframes sound-pulse {
+  0% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+/* Progress bar para tempo de espera */
+.waiting-progress {
+  height: 6px;
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-top: 1rem;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--secondary);
+  width: 50%;
+  transition: width 0.5s ease;
+}
+
+/* ================ MELHORIAS GERAIS ================ */
+/* Ajustes para melhor hierarquia visual */
+.card-highlight .stMarkdown {
+  color: white !important;
+}
+
+.card-muted .stMarkdown {
+  color: var(--text-muted) !important;
+}
+
+/* Melhor espaçamento para dados importantes */
+.data-emphasis {
+  font-size: 1.2rem;
   font-weight: 600;
+  color: var(--primary);
 }
 
-table tr:nth-child(even) {
-  background-color: #f1f3f5;
+/* Sombra dinâmica para cards ativos */
+.card-active {
+  box-shadow: 0 8px 25px rgba(0, 86, 179, 0.15);
 }
 
-/* Professional hover effects for table rows */
-table tr:hover {
-  background-color: #e9ecef;
-  transition: background-color var(--transition-speed);
+/* Efeito de loading */
+@keyframes loading-pulse {
+  0% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+  100% { opacity: 0.6; transform: scale(1); }
+}
+
+.loading-state {
+  animation: loading-pulse 1.5s infinite;
+  filter: grayscale(0.5);
 }

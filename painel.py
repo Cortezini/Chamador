@@ -1,238 +1,274 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from datetime import datetime
-from scipy.io.wavfile import write
 import os
 import base64
+from datetime import datetime
+from scipy.io.wavfile import write
+from pathlib import Path
 
-# ----- Configurações -----
-st.set_page_config(page_title='Painel BDM', layout='wide', page_icon='assets/bdm.ico')
+# ================ Configurações Globais ================
+CONFIG = {
+    'page_title': 'Painel BDM',
+    'page_icon': 'assets/bdm.ico',
+    'layout': 'wide',
+    'data_file': 'chamados.csv',
+    'sound_settings': {
+        'sample_rate': 44100,
+        'duration': 2,
+        'frequency': 440,
+        'alert_path': Path('assets/som_alerta.wav')
+    },
+    'css_file': 'style.css'
+}
 
-# Inicialização do session_state
-if "som_tocado" not in st.session_state:
-    st.session_state["som_tocado"] = False
-if "som_ativado" not in st.session_state:
-    st.session_state["som_ativado"] = True
-if "auto_update" not in st.session_state:
-    st.session_state["auto_update"] = False
+# ================ Inicialização do Session State ================
+SESSION_DEFAULTS = {
+    'som_tocado': False,
+    'som_ativado': True,
+    'auto_update': False
+}
 
-def load_external_css(path: str):
-    if os.path.exists(path):
-        with open(path, 'r', encoding='utf-8') as f:
+for key, value in SESSION_DEFAULTS.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+# ================ Funções de Utilidade ================
+def setup_page():
+    """Configurações iniciais da página"""
+    st.set_page_config(
+        page_title=CONFIG['page_title'],
+        layout=CONFIG['layout'],
+        page_icon=CONFIG['page_icon']
+    )
+    
+    # Criar diretórios necessários
+    Path('assets').mkdir(exist_ok=True)
+    
+    # Carregar recursos externos
+    load_external_css(CONFIG['css_file'])
+    ensure_alert_sound()
+
+def load_external_css(file_path: str):
+    """Carrega CSS externo"""
+    try:
+        with open(file_path, 'r', encoding='utf-8') as f:
             css = f.read()
         st.markdown(f'<style>{css}</style>', unsafe_allow_html=True)
-    else:
-        st.error(f"Arquivo de estilo não encontrado: {path}")
-
-# 2) Agora que a função existe, você pode chamá-la:
-load_external_css('style.css')  # ou 'style.css', dependendo de onde você colocou
-
-# ----- Parâmetros de som e arquivo -----
-SAMPLE_RATE, DURATION, FREQUENCY = 44100, 2, 440
-ALERT_PATH = os.path.join('assets', 'som_alerta.wav')
-DATA_CSV = 'chamados.csv'
-
-# Verifica se o diretório 'assets' existe, senão cria
-if not os.path.exists('assets'):
-    os.makedirs('assets')
-
-# ----- Funções de áudio -----
-def gerar_som():
-    """Gera o som de alerta e salva como som_alerta.wav no diretório assets."""
-    if not os.path.exists('assets'):
-        os.makedirs('assets')
-    t = np.linspace(0, DURATION, int(SAMPLE_RATE * DURATION), False)
-    wave = 0.5 * np.sin(2 * np.pi * FREQUENCY * t)
-    audio = np.int16(wave * 32767)
-    write(ALERT_PATH, SAMPLE_RATE, audio)
-
-# Verifica se o arquivo de som existe, senão o gera automaticamente
-if not os.path.exists(ALERT_PATH):
-    print(f"O arquivo {ALERT_PATH} não foi encontrado. Gerando som...")
-    gerar_som()
-
-def tocar_som():
-    """Toca o som de alerta, gerando-o caso não exista."""
-    if not os.path.exists(ALERT_PATH):
-        st.warning("O arquivo de som 'som_alerta.wav' não foi encontrado. Gerando som de alerta automaticamente...")
-        gerar_som()
-    try:
-        with open(ALERT_PATH, 'rb') as f:
-            st.audio(f.read(), format='audio/wav')
-    except Exception as e:
-        st.error(f"Erro ao tentar reproduzir o som: {str(e)}")
-
-# ----- Leitura e gravação de dados -----
-def carregar_dados():
-    """Carrega os dados do CSV ou inicializa um DataFrame vazio se o arquivo não existir."""
-    try:
-        df = pd.read_csv(DATA_CSV, parse_dates=['chamado_em'])
     except FileNotFoundError:
-        cols = ['motorista', 'contato', 'transportadora', 'senha', 'placa',
-                'cliente', 'vendedor', 'destino', 'doca', 'status', 'chamado_em']
-        df = pd.DataFrame(columns=cols)
-        df.to_csv(DATA_CSV, index=False)
-    except pd.errors.EmptyDataError:
-        cols = ['motorista', 'contato', 'transportadora', 'senha', 'placa',
-                'cliente', 'vendedor', 'destino', 'doca', 'status', 'chamado_em']
-        df = pd.DataFrame(columns=cols)
-    return df
+        st.error(f"Arquivo de estilo não encontrado: {file_path}")
 
-def salvar_dados(df):
-    """Salva o DataFrame no arquivo CSV."""
-    if isinstance(df, pd.DataFrame):
-        df.to_csv(DATA_CSV, index=False)
-    else:
-        raise ValueError("O objeto fornecido para salvar não é um DataFrame válido!")
+def get_image_base64(path: str) -> str:
+    """Converte imagem para base64"""
+    try:
+        with open(path, "rb") as f:
+            return base64.b64encode(f.read()).decode()
+    except FileNotFoundError:
+        st.error(f"Imagem não encontrada: {path}")
+        return ""
 
-# ----- Sidebar -----
-st.sidebar.title('Controles')
-modo = st.sidebar.selectbox('Modo', ['Painel ADM', 'Painel Pátio', 'Painel Motorista'])
-som_ativo = st.sidebar.checkbox('Som Ativo', True)
-auto_update = st.sidebar.checkbox('Auto Refresh', False)
-interval = st.sidebar.slider('Intervalo (s)', 1, 30, 5)
+# ================ Gerenciamento de Áudio ================
+def ensure_alert_sound():
+    """Garante a existência do arquivo de som de alerta"""
+    sound_path = CONFIG['sound_settings']['alert_path']
+    if not sound_path.exists():
+        generate_alert_sound()
 
-# ----- Auto refresh -----
-if auto_update:
-    st.rerun()
+def generate_alert_sound():
+    """Gera o arquivo de som de alerta"""
+    settings = CONFIG['sound_settings']
+    t = np.linspace(0, settings['duration'], int(settings['sample_rate'] * settings['duration']), False)
+    wave = 0.5 * np.sin(2 * np.pi * settings['frequency'] * t)
+    audio = np.int16(wave * 32767)
+    write(str(settings['alert_path']), settings['sample_rate'], audio)
 
-# ----- Título -----
-def get_image_base64(path):
-    with open(path, "rb") as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
+def play_alert_sound():
+    """Reproduz o som de alerta"""
+    if st.session_state.som_ativado:
+        try:
+            with open(CONFIG['sound_settings']['alert_path'], 'rb') as f:
+                st.audio(f.read(), format='audio/wav')
+        except Exception as e:
+            st.error(f"Falha ao reproduzir som: {str(e)}")
 
-img_base64 = get_image_base64("assets/bdm.ico")
+# ================ Gerenciamento de Dados ================
+def load_data() -> pd.DataFrame:
+    """Carrega ou inicializa os dados dos chamados"""
+    columns = [
+        'motorista', 'contato', 'transportadora', 'senha', 'placa',
+        'cliente', 'vendedor', 'destino', 'doca', 'status', 'chamado_em'
+    ]
+    
+    try:
+        return pd.read_csv(
+            CONFIG['data_file'],
+            parse_dates=['chamado_em'],
+            dtype={col: str for col in columns if col != 'chamado_em'}
+        )
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        return pd.DataFrame(columns=columns)
+    except Exception as e:
+        st.error(f"Erro ao carregar dados: {str(e)}")
+        return pd.DataFrame(columns=columns)
 
-st.markdown(f'''
-<div class='header'>
-    <img src="data:image/x-icon;base64,{img_base64}" width="30" style="vertical-align: middle; margin-right: 10px;">
-    Painel de Chamadas BDM
-</div>
-''', unsafe_allow_html=True)
+def save_data(df: pd.DataFrame):
+    """Salva os dados atualizados"""
+    try:
+        df.to_csv(CONFIG['data_file'], index=False)
+    except Exception as e:
+        st.error(f"Erro ao salvar dados: {str(e)}")
 
-df = carregar_dados()
+# ================ Componentes da Interface ================
+def render_header():
+    """Renderiza o cabeçalho da página"""
+    img_base64 = get_image_base64(CONFIG['page_icon'])
+    st.markdown(f'''
+        <div class='header'>
+            <img src="data:image/x-icon;base64,{img_base64}" width="30">
+            Painel de Chamadas BDM
+        </div>
+    ''', unsafe_allow_html=True)
 
-# ----- Painel ADM -----
-if modo == 'Painel ADM':
+def render_controls() -> dict:
+    """Renderiza os controles da sidebar e retorna configurações"""
+    with st.sidebar:
+        st.title('Controles')
+        return {
+            'modo': st.selectbox('Modo', ['Painel ADM', 'Painel Pátio', 'Painel Motorista']),
+            'som_ativado': st.checkbox('Som Ativo', st.session_state.som_ativado),
+            'auto_update': st.checkbox('Auto Refresh', st.session_state.auto_update),
+            'intervalo': st.slider('Intervalo (s)', 1, 30, 5)
+        }
+
+# ================ Painéis Específicos ================
+def render_admin_panel(df: pd.DataFrame):
+    """Interface do Painel Administrativo"""
     st.subheader('Painel Administrativo')
-
-    # Validação de df
-    if not isinstance(df, pd.DataFrame):
-        st.error("Erro: Os dados carregados não são um DataFrame válido.")
-        st.stop()
 
     with st.expander('Estatísticas'):
         total = len(df)
         counts = df['status'].value_counts().to_dict()
-        st.write(f'Total: **{total}**')
-        for k, v in counts.items():
-            st.write(f'- {k}: **{v}**')
+        st.metric("Total de Chamados", total)
+        for status, quantidade in counts.items():
+            st.metric(f"Status: {status}", quantidade)
 
-    if st.button('Limpar Tudo'):
-        salvar_dados(pd.DataFrame(columns=df.columns))
+    if st.button('Limpar Todos os Dados', type='primary'):
+        save_data(pd.DataFrame(columns=df.columns))
         st.rerun()
 
-    st.write('---')
-    st.subheader('Adicionar Motorista')
-
-    with st.form('add'):
-        nome = st.text_input('Nome')
-        contato = st.text_input('Contato')
-        transportadora = st.text_input('Transportadora')
-        senha = st.text_input('Senha')
-        placa = st.text_input('Placa')
-        cliente = st.text_input('Cliente')
-        vendedor = st.text_input('Vendedor')
-        ok = st.form_submit_button('Adicionar')
-
-        if ok:
-            if nome and contato:
-                novo = {
-                    'motorista': nome, 'contato': contato, 'transportadora': transportadora,
-                    'senha': senha, 'placa': placa, 'cliente': cliente, 'vendedor': vendedor,
-                    'destino': '', 'doca': '', 'status': 'Aguardando', 'chamado_em': pd.NaT
-                }
-                df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
-                salvar_dados(df)
-                st.success('Motorista adicionado com sucesso!')
+    with st.form("Novo Motorista"):
+        campos = {
+            'motorista': st.text_input('Nome*'),
+            'contato': st.text_input('Contato*'),
+            'transportadora': st.text_input('Transportadora'),
+            'senha': st.text_input('Senha'),
+            'placa': st.text_input('Placa'),
+            'cliente': st.text_input('Cliente'),
+            'vendedor': st.text_input('Vendedor')
+        }
+        
+        if st.form_submit_button('Adicionar Motorista'):
+            if not all([campos['motorista'], campos['contato']]):
+                st.error("Campos obrigatórios (*) não preenchidos")
             else:
-                st.error("Por favor, preencha os campos obrigatórios.")
+                novo_registro = {k: v or '' for k, v in campos.items()}
+                novo_registro.update({
+                    'destino': '',
+                    'doca': '',
+                    'status': 'Aguardando',
+                    'chamado_em': pd.NaT
+                })
+                df = pd.concat([df, pd.DataFrame([novo_registro])], ignore_index=True)
+                save_data(df)
+                st.success('Motorista cadastrado com sucesso!')
 
-    st.write('---')
-    st.dataframe(df)
+    st.dataframe(df, use_container_width=True)
 
-# ----- Painel Pátio -----
-elif modo == 'Painel Pátio':
+def render_yard_panel(df: pd.DataFrame):
+    """Interface do Painel do Pátio"""
     st.subheader('Painel do Pátio')
     aguardando = df[df['status'] == 'Aguardando']
+
     if aguardando.empty:
-        st.info('Nenhum aguardando.')
-    else:
-        for idx, row in aguardando.iterrows():
-            st.markdown('<div class=\'card\'>', unsafe_allow_html=True)
-            st.markdown(f"### Motorista: {row['motorista']}")
-            st.markdown(f"**Senha:** {row['senha']}")
-            st.text_input('Doca', value=row['doca'], key=f'doca{idx}', disabled=True)
-            st.text_input('Destino', value=row['destino'], key=f'dest{idx}', disabled=True)
-            if st.button('Chamar', key=f'call{idx}'):
+        st.info('Nenhum motorista aguardando')
+        return
+
+    for idx, row in aguardando.iterrows():
+        with st.container():
+            st.markdown(f"### {row['motorista']}")
+            cols = st.columns([2, 1, 1])
+            cols[0].write(f"**Senha:** {row['senha']}")
+            cols[1].text_input('Doca', key=f'doca_{idx}', disabled=True)
+            cols[2].text_input('Destino', key=f'dest_{idx}', disabled=True)
+            
+            if st.button('Chamar Motorista', key=f'btn_{idx}'):
                 df.at[idx, 'status'] = 'Chamado'
                 df.at[idx, 'chamado_em'] = datetime.now()
-                salvar_dados(df)
-                st.success(f"{row['motorista']} chamado!")
-                if som_ativo:
-                    tocar_som()
-            st.markdown('</div>', unsafe_allow_html=True)
+                save_data(df)
+                st.success(f"Motorista {row['motorista']} chamado!")
+                play_alert_sound()
 
-# ----- Painel Motorista -----
-elif modo == 'Painel Motorista':
+def render_driver_panel(df: pd.DataFrame):
+    """Interface do Painel do Motorista"""
+    chamados = df[df['status'] == 'Chamado'].sort_values('chamado_em', ascending=False)
     
-    # Pega os chamados em “Chamado”, mais recentes primeiro
-    chamados = df[df['status']=='Chamado'].sort_values('chamado_em', ascending=False)
-
     if chamados.empty:
-        st.info('Nenhum chamado no momento.')
-    else:
-        # === DESTAQUE DO ÚLTIMO CHAMADO ===
-        ultimo = chamados.iloc[0]
-        with st.container():
-            st.markdown('<div class="card-highlight">', unsafe_allow_html=True)
-            c1, c2, c3, c4 = st.columns([1,2,2,2])
-            c1.markdown('## 🚨')
-            c2.markdown(f"### {ultimo['motorista']}")
-            c3.markdown(f"**Doca:** {ultimo['doca'] or '—'}")
-            c4.markdown(f"**Destino:** {ultimo['destino'] or '—'}")
-            c5, c6, c7 = st.columns([2,2,2])
-            c5.markdown(f"**Cliente:** {ultimo['cliente']}")
-            c6.markdown(f"**Vendedor:** {ultimo['vendedor']}")
-            c7.markdown(f"**Chamado em:** {ultimo['chamado_em'].strftime('%d/%m %H:%M')}")
-            st.markdown('</div>', unsafe_allow_html=True)
+        st.info('Nenhum chamado ativo')
+        return
 
-        # === HISTÓRICO SEMPRE VISÍVEL E ROLÁVEL ===
-        st.markdown('### 🕒 Histórico de Chamados')
-        st.markdown('<div class="history-container">', unsafe_allow_html=True)
-
-        for idx, row in chamados.iterrows():
-            if idx == ultimo.name:
-                continue
-            st.markdown('<div class="card-muted">', unsafe_allow_html=True)
-            r1, r2, r3, r4 = st.columns([2,2,1,2])
-            r1.write(f"**{row['motorista']}**")
-            r2.write(f"Doca: {row['doca'] or '–'}")
-            r3.write(row['chamado_em'].strftime('%H:%M'))
-            r4.write(f"Cliente: {row['cliente']}")
-            st.markdown('</div>', unsafe_allow_html=True)
-
+    # Último chamado
+    ultimo = chamados.iloc[0]
+    with st.container():
+        st.markdown('<div class="card-highlight">', unsafe_allow_html=True)
+        cols = st.columns([1, 2, 2, 2])
+        cols[0].markdown('## 🚨')
+        cols[1].markdown(f"### {ultimo['motorista']}")
+        cols[2].markdown(f"**Doca:** {ultimo['doca'] or '—'}")
+        cols[3].markdown(f"**Destino:** {ultimo['destino'] or '—'}")
+        
+        info_cols = st.columns(3)
+        info_cols[0].markdown(f"**Cliente:** {ultimo['cliente']}")
+        info_cols[1].markdown(f"**Vendedor:** {ultimo['vendedor']}")
+        info_cols[2].markdown(f"**Chamado em:** {ultimo['chamado_em'].strftime('%d/%m %H:%M')}")
         st.markdown('</div>', unsafe_allow_html=True)
 
-    # === ALERTA SONORO “POR TRÁS DOS PANOS” ===
-    if (not st.session_state.som_tocado 
-        and st.session_state.som_ativado 
-        and not chamados.empty):
-        # só gera o som, mas não chama o st.audio()
-        gerar_som()
-        st.session_state.som_tocado = True
+    # Histórico
+    st.markdown('### 🕒 Histórico de Chamados')
+    for idx, row in chamados.iloc[1:].iterrows():
+        with st.container():
+            st.markdown('<div class="card-muted">', unsafe_allow_html=True)
+            cols = st.columns([3, 2, 1, 2])
+            cols[0].write(f"**{row['motorista']}**")
+            cols[1].write(f"Doca: {row['doca'] or '-'}")
+            cols[2].write(row['chamado_em'].strftime('%H:%M'))
+            cols[3].write(f"Cliente: {row['cliente']}")
+            st.markdown('</div>', unsafe_allow_html=True)
 
+# ================ Execução Principal ================
+def main():
+    setup_page()
+    render_header()
+    
+    controls = render_controls()
+    df = load_data()
+    
+    # Atualizar session state
+    st.session_state.update({
+        'som_ativado': controls['som_ativado'],
+        'auto_update': controls['auto_update']
+    })
 
+    # Seleção de modo
+    if controls['modo'] == 'Painel ADM':
+        render_admin_panel(df)
+    elif controls['modo'] == 'Painel Pátio':
+        render_yard_panel(df)
+    else:
+        render_driver_panel(df)
 
+    # Auto refresh
+    if controls['auto_update']:
+        st.rerun()
+
+if __name__ == '__main__':
+    main()
