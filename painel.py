@@ -6,6 +6,9 @@ from scipy.io.wavfile import write
 import os
 import random
 
+# ----- Configurações -----
+st.set_page_config(page_title='Sistema de Chamadas', layout='wide', page_icon='🚛')  # DEVE SER O PRIMEIRO COMANDO
+
 # ----- Estilo customizado com CSS -----
 custom_css = '''
 :root {
@@ -38,10 +41,7 @@ body, .stApp {
 ''' 
 st.markdown(f'<style>{custom_css}</style>', unsafe_allow_html=True)
 
-# ----- Configurações -----
-st.set_page_config(page_title='Sistema de Chamadas', layout='wide', page_icon='🚛')
-
-# Parâmetros de som e arquivo
+# ----- Parâmetros de som e arquivo -----
 SAMPLE_RATE, DURATION, FREQUENCY = 44100, 2, 440
 ALERT_PATH = os.path.join('assets', 'alert.wav')
 MUSIC_LIST = [os.path.join('assets', 'chamada.mp3')]
@@ -166,7 +166,6 @@ else:
                 tocar_som()
                 som_ativo = False
             st.markdown('</div>', unsafe_allow_html=True)
-
 
     # Som apenas para o primeiro da fila
     if not st.session_state["som_tocado"]:
