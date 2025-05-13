@@ -95,7 +95,7 @@ interval = st.sidebar.slider('Intervalo (s)', 1, 30, 5)
 
 # ----- Auto refresh -----
 if auto_update:
-    st.experimental_rerun()
+    st.rerun()
 
 # ----- Título -----
 def get_image_base64(path):
@@ -132,7 +132,7 @@ if modo == 'Painel ADM':
 
     if st.button('Limpar Tudo'):
         salvar_dados(pd.DataFrame(columns=df.columns))
-        st.experimental_rerun()
+        st.rerun()
 
     st.write('---')
     st.subheader('Adicionar Motorista')
@@ -188,42 +188,51 @@ elif modo == 'Painel Pátio':
 # ----- Painel Motorista -----
 elif modo == 'Painel Motorista':
     st.subheader('🚛 Painel Motorista')
-    chamados = df[df['status'] == 'Chamado'].sort_values('chamado_em')
+    
+    # Pega os chamados em “Chamado”, mais recentes primeiro
+    chamados = df[df['status']=='Chamado'].sort_values('chamado_em', ascending=False)
 
     if chamados.empty:
         st.info('Nenhum chamado no momento.')
     else:
-        # Primeiro chamado em destaque
-        primeiro = chamados.iloc[0]
+        # === DESTAQUE DO ÚLTIMO CHAMADO ===
+        ultimo = chamados.iloc[0]
         with st.container():
             st.markdown('<div class="card-highlight">', unsafe_allow_html=True)
-            col1, col2 = st.columns([2, 3])
-            with col1:
-                st.markdown(f"### {primeiro['motorista']}")
-                st.caption(f"Chamado em: {primeiro['chamado_em'].strftime('%d/%m/%Y %H:%M')}")
-            with col2:
-                st.markdown(f"**Cliente:** {primeiro['cliente']}")
-                st.markdown(f"**Doca:** {primeiro['doca'] or '—'}")
-                st.markdown(f"**Destino:** {primeiro['destino'] or '—'}")
+            c1, c2, c3, c4 = st.columns([1,2,2,2])
+            c1.markdown('## 🚨')
+            c2.markdown(f"### {ultimo['motorista']}")
+            c3.markdown(f"**Doca:** {ultimo['doca'] or '—'}")
+            c4.markdown(f"**Destino:** {ultimo['destino'] or '—'}")
+            c5, c6, c7 = st.columns([2,2,2])
+            c5.markdown(f"**Cliente:** {ultimo['cliente']}")
+            c6.markdown(f"**Vendedor:** {ultimo['vendedor']}")
+            c7.markdown(f"**Chamado em:** {ultimo['chamado_em'].strftime('%d/%m %H:%M')}")
             st.markdown('</div>', unsafe_allow_html=True)
 
-        # Histórico num expander com abas (um expander por chamado)
-        historico = chamados.iloc[1:]
-        if not historico.empty:
-            with st.expander(f"📜 Histórico ({len(historico)})", expanded=False):
-                for idx, row in historico.iterrows():
-                    with st.container():
-                        st.markdown('<div class="card-muted">', unsafe_allow_html=True)
-                        r1, r2, r3, r4 = st.columns([2,2,1,2])
-                        r1.write(f"**{row['motorista']}**")
-                        r2.write(f"Cliente: {row['cliente']}")
-                        r3.write(f"Doca: {row['doca'] or '–'}")
-                        r4.write(f"Chamado: {row['chamado_em'].strftime('%H:%M')}")
-                        st.markdown('</div>', unsafe_allow_html=True)
+        # === HISTÓRICO SEMPRE VISÍVEL E ROLÁVEL ===
+        st.markdown('### 🕒 Histórico de Chamados')
+        st.markdown('<div class="history-container">', unsafe_allow_html=True)
 
-    # Gatilho de som só para o primeiro
-    if not st.session_state.som_tocado and st.session_state.som_ativado and not chamados.empty:
-        tocar_som()
+        for idx, row in chamados.iterrows():
+            if idx == ultimo.name:
+                continue
+            st.markdown('<div class="card-muted">', unsafe_allow_html=True)
+            r1, r2, r3, r4 = st.columns([2,2,1,2])
+            r1.write(f"**{row['motorista']}**")
+            r2.write(f"Doca: {row['doca'] or '–'}")
+            r3.write(row['chamado_em'].strftime('%H:%M'))
+            r4.write(f"Cliente: {row['cliente']}")
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    # === ALERTA SONORO “POR TRÁS DOS PANOS” ===
+    if (not st.session_state.som_tocado 
+        and st.session_state.som_ativado 
+        and not chamados.empty):
+        # só gera o som, mas não chama o st.audio()
+        gerar_som()
         st.session_state.som_tocado = True
 
 
