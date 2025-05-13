@@ -264,12 +264,49 @@ def render_admin_panel(df: pd.DataFrame):
             )
         }
     )
-
 # ================ PAINEL PÁTIO ================
 def render_yard_panel(df: pd.DataFrame):
     """Interface de Controle Operacional"""
     st.subheader("Controle de Docas")
     
+    # Container para notificações usando o componente correto
+    notification_container = st.container()
+    
+    if 'yard_feedback' in st.session_state:
+        feedback_type, feedback_message = st.session_state.yard_feedback
+        
+        with notification_container:
+            if feedback_type == 'success':
+                st.success(feedback_message, icon="✅")
+            elif feedback_type == 'error':
+                st.error(feedback_message, icon="⚠️")
+        
+        del st.session_state.yard_feedback
+
+        
+        # Usar classes CSS personalizadas
+        if feedback_type == 'success':
+            notification_container.markdown(f"""
+                <div class="stAlert success-alert">
+                    <div class="alert-content">
+                        ✅ {feedback_message}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+        elif feedback_type == 'error':
+            notification_container.markdown(f"""
+                <div class="stAlert error-alert">
+                    <div class="alert-content">
+                        ⚠️ {feedback_message}
+                    </div>
+                </div>
+            """, unsafe_allow_html=True)
+        
+        # Limpar feedback após exibição
+        del st.session_state.yard_feedback
+
+    # [O restante do código permanece igual...]
+
     # Mostrar operações em andamento
     operacoes_ativas = df[df['status'].isin(['Chamado', 'Em Progresso'])]
     
@@ -307,17 +344,39 @@ def render_yard_panel(df: pd.DataFrame):
                 col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
                     if st.button("🔄 Atualizar", key=f'update_{idx}'):
-                        df.at[idx, 'doca'] = nova_doca
-                        df.at[idx, 'destino'] = novo_destino
-                        df.at[idx, 'status'] = 'Em Progresso'
-                        save_data(df)
-                        st.rerun()
+                        try:
+                            df.at[idx, 'doca'] = nova_doca
+                            df.at[idx, 'destino'] = novo_destino
+                            df.at[idx, 'status'] = 'Em Progresso'
+                            save_data(df)
+                            st.session_state.yard_feedback = (
+                                'success', 
+                                f'Doca {nova_doca} atualizada para {row["motorista"]}!'
+                            )
+                            st.rerun()
+                        except Exception as e:
+                            st.session_state.yard_feedback = (
+                                'error',
+                                f'Erro na atualização: {str(e)}'
+                            )
+                            st.rerun()
                 
                 with col_btn2:
                     if st.button("✅ Finalizar", key=f'finish_{idx}', type='primary'):
-                        df.at[idx, 'status'] = 'Finalizado'
-                        save_data(df)
-                        st.rerun()
+                        try:
+                            df.at[idx, 'status'] = 'Finalizado'
+                            save_data(df)
+                            st.session_state.yard_feedback = (
+                                'success',
+                                f'Operação de {row["motorista"]} finalizada com sucesso!'
+                            )
+                            st.rerun()
+                        except Exception as e:
+                            st.session_state.yard_feedback = (
+                                'error',
+                                f'Erro ao finalizar operação: {str(e)}'
+                            )
+                            st.rerun()
 
     # Mostrar motoristas aguardando
     st.markdown("### Novos Chamados")
@@ -352,12 +411,23 @@ def render_yard_panel(df: pd.DataFrame):
                 )
                 
                 if st.button("▶️ Iniciar Operação", key=f'start_{idx}'):
-                    df.at[idx, 'status'] = 'Chamado'
-                    df.at[idx, 'chamado_em'] = datetime.now()
-                    df.at[idx, 'doca'] = doca
-                    df.at[idx, 'destino'] = destino
-                    save_data(df)
-                    st.rerun()
+                    try:
+                        df.at[idx, 'status'] = 'Chamado'
+                        df.at[idx, 'chamado_em'] = datetime.now()
+                        df.at[idx, 'doca'] = doca
+                        df.at[idx, 'destino'] = destino
+                        save_data(df)
+                        st.session_state.yard_feedback = (
+                            'success',
+                            f'Operação iniciada para {row["motorista"]} na doca {doca}!'
+                        )
+                        st.rerun()
+                    except Exception as e:
+                        st.session_state.yard_feedback = (
+                            'error',
+                            f'Erro ao iniciar operação: {str(e)}'
+                        )
+                        st.rerun()
 
 # ================ PAINEL MOTORISTA ================
 def render_driver_panel(df: pd.DataFrame):

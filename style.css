@@ -406,3 +406,62 @@ div.block-container {
     padding-top: 2rem !important;
 }
 
+/* ================ ESTILOS DO PAINEL DE RELATÓRIOS ================ */
+
+/* Filtros */
+div[data-testid="column"] > div[data-testid="stVerticalBlock"] {
+    background: #ffffff;
+    padding: 1rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 1.5rem;
+}
+
+/* Cabeçalho da tabela */
+thead th {
+    background: var(--primary) !important;
+    color: white !important;
+    font-weight: 600 !important;
+}
+
+/* Linhas da tabela */
+tbody tr {
+    transition: all 0.2s ease;
+}
+
+tbody tr:hover {
+    background-color: #f8f9fa !important;
+    transform: translateX(5px);
+}
+
+/* Barra de progresso */
+div[role="progressbar"] {
+    height: 8px !important;
+    border-radius: 4px !important;
+}
+
+div[role="progressbar"] > div {
+    background: var(--secondary) !important;
+}
+
+/* Status colors */
+td[data-testid="stDataFrameStyledCell"] > div {
+    border-radius: 5px;
+    padding: 0.25rem 0.5rem;
+    text-align: center;
+    font-weight: 500;
+}
+
+/* Cores dos status */
+div[data-status="Aguardando"] { background: #fff3cd; color: #856404; }
+div[data-status="Chamado"] { background: #cce5ff; color: #004085; }
+div[data-status="Em Progresso"] { background: #d4edda; color: #155724; }
+div[data-status="Finalizado"] { background: #f8f9fa; color: #6c757d; }
+
+/* Métricas */
+div[data-testid="metric-container"] {
+    border: 1px solid #dee2e6;
+    border-radius: 10px;
+    padding: 1rem;
+}
+
