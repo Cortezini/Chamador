@@ -56,8 +56,15 @@ def gerar_som():
         write(ALERT_PATH, SAMPLE_RATE, audio)
 
 def tocar_som():
-    with open(ALERT_PATH, 'rb') as f:
-        st.audio(f.read(), format='audio/wav')
+    """Toca o som de alerta, gerando-o caso não exista."""
+    if not os.path.exists(ALERT_PATH):
+        st.warning("O arquivo de som não foi encontrado. Gerando som de alerta automaticamente...")
+        gerar_som()  # Gera o som automaticamente se não existir
+    try:
+        with open(ALERT_PATH, 'rb') as f:
+            st.audio(f.read(), format='audio/wav')
+    except FileNotFoundError:
+        st.error("Erro: O arquivo de som não foi encontrado e não pôde ser gerado.")
 
 # ----- Leitura e gravação de dados -----
 def carregar_dados():
