@@ -187,7 +187,6 @@ elif modo == 'Painel Pátio':
 
 # ----- Painel Motorista -----
 elif modo == 'Painel Motorista':
-    st.subheader('🚛 Painel Motorista')
     
     # Pega os chamados em “Chamado”, mais recentes primeiro
     chamados = df[df['status']=='Chamado'].sort_values('chamado_em', ascending=False)
