@@ -210,27 +210,29 @@ else:
     df_chamados = df[df["status"] == "Chamado"].sort_values(by="chamado_em", ascending=False)
 
     if not df_chamados.empty:
-        st.subheader("📢 Últimos Chamados")
+        st.subheader("📢 Motoristas Chamados")
 
-    ultimo = df_chamados.iloc[0]
-    tempo_espera = datetime.now() - pd.to_datetime(ultimo["chamado_em"])
-    minutos_espera = int(tempo_espera.total_seconds() // 60)
-    segundos_espera = int(tempo_espera.total_seconds() % 60)
+    for index, row in df_chamados.iterrows():
+        tempo_espera = datetime.now() - pd.to_datetime(row["chamado_em"])
+        minutos_espera = int(tempo_espera.total_seconds() // 60)
+        segundos_espera = int(tempo_espera.total_seconds() % 60)
 
-    st.markdown(
-        f"""
-        <div style='background-color: #f8d7da; padding: 30px; border-radius: 10px; border-left: 6px solid red;'>
-            <h2 style='color:#721c24;'>🚛 {ultimo['motorista']}</h2>
-            <p style='font-size: 22px;'><strong>📦 Cliente:</strong> {ultimo['cliente']}</p>
-            <p style='font-size: 26px;'><strong>📍 Doca:</strong> {ultimo['doca']}</p>
-            <p style='font-size: 20px;'><strong>🛣️ Destino:</strong> {ultimo['destino']}</p>
-            <p style='font-size: 18px; color: gray;'><strong>⏱️ Tempo de espera:</strong> {minutos_espera} min {segundos_espera} seg</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+        st.markdown(
+            f"""
+            <div style='background-color: #f8d7da; padding: 20px; border-radius: 10px; border-left: 6px solid red; margin-bottom: 15px;'>
+                <h2 style='color:#721c24;'>🚛 {row['motorista']}</h2>
+                <p style='font-size: 18px;'><strong>📦 Cliente:</strong> {row['cliente']}</p>
+                <p style='font-size: 20px;'><strong>📍 Doca:</strong> {row['doca']}</p>
+                <p style='font-size: 18px;'><strong>🛣️ Destino:</strong> {row['destino']}</p>
+                <p style='font-size: 16px; color: gray;'><strong>⏱️ Tempo de espera:</strong> {minutos_espera} min {segundos_espera} seg</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
+    # Som apenas para o primeiro da fila
     if not st.session_state["som_tocado"]:
         if st.session_state["som_ativado"]:
             st.audio(SOM_ALERTA, format="audio/wav")
         st.session_state["som_tocado"] = True
+
