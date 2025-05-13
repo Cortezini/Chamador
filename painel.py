@@ -44,7 +44,7 @@ st.markdown(f'<style>{custom_css}</style>', unsafe_allow_html=True)
 # ----- Parâmetros de som e arquivo -----
 SAMPLE_RATE, DURATION, FREQUENCY = 44100, 2, 440
 ALERT_PATH = os.path.join('assets', 'alert.wav')
-MUSIC_LIST = [os.path.join('assets', 'chamada.mp3')]  # Atualizado para o nome correto
+MUSIC_LIST = [os.path.join('assets', 'chamada.mp3.mp3')]  # Atualizado para o nome correto
 DATA_CSV = 'chamados.csv'
 
 # ----- Funções de áudio -----
