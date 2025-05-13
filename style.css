@@ -341,3 +341,19 @@ h3 {
     color: #155724;
 }
 
+/* Estilização do feedback */
+.stAlert {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 999;
+    min-width: 300px;
+    border-left: 4px solid #00C853;
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+}
+

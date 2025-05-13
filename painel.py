@@ -7,6 +7,9 @@ import base64
 from datetime import datetime, timedelta
 from scipy.io.wavfile import write
 from pathlib import Path
+from streamlit import cli as stcli
+from streamlit.runtime.scriptrunner import RerunData, RerunException
+from streamlit.source_util import get_pages
 
 # ================ CONFIGURAÇÕES GLOBAIS ================
 CONFIG = {
@@ -267,8 +270,13 @@ def render_admin_panel(df: pd.DataFrame):
 
 # ================ PAINEL PÁTIO ================
 def render_yard_panel(df: pd.DataFrame):
-    """Interface de Controle Operacional"""
+    """Interface de Controle Operacional com Feedback"""
     st.subheader("Controle de Docas")
+    
+    # Exibir feedback persistente
+    if 'feedback' in st.session_state:
+        st.success(st.session_state.feedback)
+        del st.session_state.feedback
     
     # Mostrar operações em andamento
     operacoes_ativas = df[df['status'].isin(['Chamado', 'Em Progresso'])]
@@ -311,13 +319,17 @@ def render_yard_panel(df: pd.DataFrame):
                         df.at[idx, 'destino'] = novo_destino
                         df.at[idx, 'status'] = 'Em Progresso'
                         save_data(df)
+                        st.session_state.feedback = f"✅ Atualizado: {row['motorista']} | Doca: {nova_doca} | Destino: {novo_destino}"
                         st.rerun()
                 
                 with col_btn2:
                     if st.button("✅ Finalizar", key=f'finish_{idx}', type='primary'):
                         df.at[idx, 'status'] = 'Finalizado'
                         save_data(df)
+                        st.session_state.feedback = f"🏁 Finalizado: {row['motorista']} | Placa: {row['placa']}"
                         st.rerun()
+
+    # Restante do código para novos chamados...
 
     # Mostrar motoristas aguardando
     st.markdown("### Novos Chamados")
