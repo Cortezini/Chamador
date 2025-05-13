@@ -51,25 +51,30 @@ st.markdown(f'<style>{custom_css}</style>', unsafe_allow_html=True)
 
 # ----- Parâmetros de som e arquivo -----
 SAMPLE_RATE, DURATION, FREQUENCY = 44100, 2, 440
-ALERT_PATH = os.path.join('assets', 'alert.wav')
+ALERT_PATH = os.path.join('assets', 'som_alerta.wav')  # Caminho atualizado para som_alerta.wav
 MUSIC_LIST = [os.path.join('assets', 'som_alerta.wav')]  # Atualizado para o nome correto
 DATA_CSV = 'chamados.csv'
 
 # ----- Funções de áudio -----
 def gerar_som():
-    if not os.path.exists(ALERT_PATH):
-        t = np.linspace(0, DURATION, int(SAMPLE_RATE * DURATION), False)
-        wave = 0.5 * np.sin(2 * np.pi * FREQUENCY * t)
-        audio = np.int16(wave * 32767)
-        write(ALERT_PATH, SAMPLE_RATE, audio)
+    """Gera o som de alerta e salva como som_alerta.wav no diretório assets."""
+    if not os.path.exists('assets'):
+        os.makedirs('assets')  # Cria o diretório assets, se não existir
+    t = np.linspace(0, DURATION, int(SAMPLE_RATE * DURATION), False)
+    wave = 0.5 * np.sin(2 * np.pi * FREQUENCY * t)
+    audio = np.int16(wave * 32767)
+    write(ALERT_PATH, SAMPLE_RATE, audio)  # Salva o som gerado como som_alerta.wav
 
 def tocar_som():
-    """Toca o som de chamada."""
-    if os.path.exists(MUSIC_LIST[0]):  # Verifica se o arquivo existe
-        with open(MUSIC_LIST[0], 'rb') as f:
+    """Toca o som de alerta, gerando-o caso não exista."""
+    if not os.path.exists(ALERT_PATH):
+        st.warning("O arquivo de som 'som_alerta.wav' não foi encontrado. Gerando som de alerta automaticamente...")
+        gerar_som()  # Gera o som automaticamente se não existir
+    try:
+        with open(ALERT_PATH, 'rb') as f:
             st.audio(f.read(), format='audio/wav')
-    else:
-        st.error("Erro: O arquivo de som 'chamada.mp3' não foi encontrado no diretório 'assets'.")
+    except Exception as e:
+        st.error(f"Erro ao tentar reproduzir o som: {str(e)}")
 
 # ----- Leitura e gravação de dados -----
 def carregar_dados():
