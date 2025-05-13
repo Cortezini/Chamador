@@ -1,13 +1,14 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import re
 import os
 import base64
 from datetime import datetime
 from scipy.io.wavfile import write
 from pathlib import Path
 
-# ================ Configurações Globais ================
+# ================ CONFIGURAÇÕES GLOBAIS ================
 CONFIG = {
     'page_title': 'Painel BDM',
     'page_icon': 'assets/bdm.ico',
@@ -19,10 +20,16 @@ CONFIG = {
         'frequency': 440,
         'alert_path': Path('assets/som_alerta.wav')
     },
-    'css_file': 'style.css'
+    'css_file': 'style.css',
+    'validations': {
+        'phone_regex': r'^\(\d{2}\) \d{4,5}-\d{4}$',
+        'plate_regex': r'^[A-Za-z]{3}[- ]?[\dA-Za-z]{4}$',
+        'password_regex': r'^\d{3}$',
+        'name_regex': r'^[A-Za-zÀ-ÿ\s]{5,}$'
+    }
 }
 
-# ================ Inicialização do Session State ================
+# ================ INICIALIZAÇÃO DO SESSION STATE ================
 SESSION_DEFAULTS = {
     'som_tocado': False,
     'som_ativado': True,
@@ -33,7 +40,7 @@ for key, value in SESSION_DEFAULTS.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
-# ================ Funções de Utilidade ================
+# ================ FUNÇÕES DE UTILIDADE ================
 def setup_page():
     """Configurações iniciais da página"""
     st.set_page_config(
@@ -42,10 +49,7 @@ def setup_page():
         page_icon=CONFIG['page_icon']
     )
     
-    # Criar diretórios necessários
     Path('assets').mkdir(exist_ok=True)
-    
-    # Carregar recursos externos
     load_external_css(CONFIG['css_file'])
     ensure_alert_sound()
 
@@ -67,15 +71,15 @@ def get_image_base64(path: str) -> str:
         st.error(f"Imagem não encontrada: {path}")
         return ""
 
-# ================ Gerenciamento de Áudio ================
+# ================ GERENCIAMENTO DE ÁUDIO ================
 def ensure_alert_sound():
-    """Garante a existência do arquivo de som de alerta"""
+    """Garante a existência do arquivo de som"""
     sound_path = CONFIG['sound_settings']['alert_path']
     if not sound_path.exists():
         generate_alert_sound()
 
 def generate_alert_sound():
-    """Gera o arquivo de som de alerta"""
+    """Gera o arquivo de som"""
     settings = CONFIG['sound_settings']
     t = np.linspace(0, settings['duration'], int(settings['sample_rate'] * settings['duration']), False)
     wave = 0.5 * np.sin(2 * np.pi * settings['frequency'] * t)
@@ -91,9 +95,9 @@ def play_alert_sound():
         except Exception as e:
             st.error(f"Falha ao reproduzir som: {str(e)}")
 
-# ================ Gerenciamento de Dados ================
+# ================ GERENCIAMENTO DE DADOS ================
 def load_data() -> pd.DataFrame:
-    """Carrega ou inicializa os dados dos chamados"""
+    """Carrega ou inicializa os dados"""
     columns = [
         'motorista', 'contato', 'transportadora', 'senha', 'placa',
         'cliente', 'vendedor', 'destino', 'doca', 'status', 'chamado_em'
@@ -118,9 +122,9 @@ def save_data(df: pd.DataFrame):
     except Exception as e:
         st.error(f"Erro ao salvar dados: {str(e)}")
 
-# ================ Componentes da Interface ================
+# ================ COMPONENTES DA INTERFACE ================
 def render_header():
-    """Renderiza o cabeçalho da página"""
+    """Renderiza o cabeçalho"""
     img_base64 = get_image_base64(CONFIG['page_icon'])
     st.markdown(f'''
         <div class='header'>
@@ -130,7 +134,7 @@ def render_header():
     ''', unsafe_allow_html=True)
 
 def render_controls() -> dict:
-    """Renderiza os controles da sidebar e retorna configurações"""
+    """Renderiza os controles da sidebar"""
     with st.sidebar:
         st.title('Controles')
         return {
@@ -140,7 +144,7 @@ def render_controls() -> dict:
             'intervalo': st.slider('Intervalo (s)', 1, 30, 5)
         }
 
-# ================ Painéis Específicos ================
+# ================ PAINEL ADMINISTRATIVO ================
 def render_admin_panel(df: pd.DataFrame):
     """Interface do Painel Administrativo"""
     st.subheader('Painel Administrativo')
@@ -156,34 +160,112 @@ def render_admin_panel(df: pd.DataFrame):
         save_data(pd.DataFrame(columns=df.columns))
         st.rerun()
 
-    with st.form("Novo Motorista"):
-        campos = {
-            'motorista': st.text_input('Nome*'),
-            'contato': st.text_input('Contato*'),
-            'transportadora': st.text_input('Transportadora'),
-            'senha': st.text_input('Senha'),
-            'placa': st.text_input('Placa'),
-            'cliente': st.text_input('Cliente'),
-            'vendedor': st.text_input('Vendedor')
-        }
+    with st.form("Novo Motorista", clear_on_submit=True):
+        st.markdown("**Campos Obrigatórios** (*)")
         
-        if st.form_submit_button('Adicionar Motorista'):
-            if not all([campos['motorista'], campos['contato']]):
-                st.error("Campos obrigatórios (*) não preenchidos")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            motorista = st.text_input(
+                'Nome Completo*',
+                placeholder="Ex: João da Silva"
+            )
+            
+            contato = st.text_input(
+                'Contato*', 
+                max_chars=15,
+                placeholder="(XX) 99999-9999"
+            )
+            
+            placa = st.text_input(
+                'Placa do Veículo*',
+                max_chars=8,
+                placeholder="AAA-0A00 ou ABC1D23"
+            )
+
+        with col2:
+            senha = st.text_input(
+                'Senha de Acesso',
+                max_chars=3,
+                placeholder="123"
+            )
+            
+            transportadora = st.text_input(
+                'Transportadora*',
+                placeholder="Nome completo da transportadora"
+        )  
+            
+            cliente = st.text_input(
+                'Cliente',
+                placeholder="Nome do cliente"
+            )
+
+        vendedor = st.text_input('Vendedor Responsável')
+
+        submitted = st.form_submit_button('Adicionar Motorista')
+        
+        if submitted:
+            errors = []
+            valid = CONFIG['validations']
+
+            # Validação de campos
+            if not motorista:
+                errors.append("Nome do motorista é obrigatório")
+            elif not re.match(valid['name_regex'], motorista, re.IGNORECASE):
+                errors.append("Nome inválido (mínimo 5 caracteres alfabéticos)")
+
+            if not contato:
+                errors.append("Contato é obrigatório")
+            elif not re.match(valid['phone_regex'], contato):
+                errors.append("Formato de contato inválido (use (XX) XXXX-XXXX)")
+
+            if not placa:
+                errors.append("Placa do veículo é obrigatória")
             else:
-                novo_registro = {k: v or '' for k, v in campos.items()}
-                novo_registro.update({
+                cleaned_plate = placa.upper().replace('-', '').replace(' ', '')
+                if not re.fullmatch(valid['plate_regex'], cleaned_plate, re.IGNORECASE):
+                    errors.append("Formato de placa inválido")
+
+            if senha and not re.fullmatch(valid['password_regex'], senha):
+                errors.append("A senha deve conter 3 dígitos numéricos")
+
+            if errors:
+                for error in errors:
+                    st.error(error)
+            else:
+                novo_registro = {
+                    'motorista': motorista.title(),
+                    'contato': contato,
+                    'transportadora': transportadora if transportadora else 'Não informada',
+                    'senha': senha if senha else 'N/A',
+                    'placa': cleaned_plate,
+                    'cliente': cliente.title() if cliente else 'Não informado',
+                    'vendedor': vendedor.title() if vendedor else 'Não informado',
                     'destino': '',
                     'doca': '',
                     'status': 'Aguardando',
                     'chamado_em': pd.NaT
-                })
+                }
+                
                 df = pd.concat([df, pd.DataFrame([novo_registro])], ignore_index=True)
                 save_data(df)
                 st.success('Motorista cadastrado com sucesso!')
+                st.balloons()
 
-    st.dataframe(df, use_container_width=True)
+    st.write('---')
+    st.dataframe(
+        df,
+        use_container_width=True,
+        column_config={
+            "status": st.column_config.SelectboxColumn(
+                "Status",
+                options=["Aguardando", "Chamado", "Finalizado"],
+                default="Aguardando"
+            )
+        }
+    )
 
+# ================ PAINEL PÁTIO ================
 def render_yard_panel(df: pd.DataFrame):
     """Interface do Painel do Pátio"""
     st.subheader('Painel do Pátio')
@@ -208,6 +290,7 @@ def render_yard_panel(df: pd.DataFrame):
                 st.success(f"Motorista {row['motorista']} chamado!")
                 play_alert_sound()
 
+# ================ PAINEL MOTORISTA ================
 def render_driver_panel(df: pd.DataFrame):
     """Interface do Painel do Motorista"""
     chamados = df[df['status'] == 'Chamado'].sort_values('chamado_em', ascending=False)
@@ -244,7 +327,7 @@ def render_driver_panel(df: pd.DataFrame):
             cols[3].write(f"Cliente: {row['cliente']}")
             st.markdown('</div>', unsafe_allow_html=True)
 
-# ================ Execução Principal ================
+# ================ EXECUÇÃO PRINCIPAL ================
 def main():
     setup_page()
     render_header()
@@ -252,13 +335,11 @@ def main():
     controls = render_controls()
     df = load_data()
     
-    # Atualizar session state
     st.session_state.update({
         'som_ativado': controls['som_ativado'],
         'auto_update': controls['auto_update']
     })
 
-    # Seleção de modo
     if controls['modo'] == 'Painel ADM':
         render_admin_panel(df)
     elif controls['modo'] == 'Painel Pátio':
@@ -266,7 +347,6 @@ def main():
     else:
         render_driver_panel(df)
 
-    # Auto refresh
     if controls['auto_update']:
         st.rerun()
 
