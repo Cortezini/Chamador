@@ -210,7 +210,7 @@ else:
     df_chamados = df[df["status"] == "Chamado"].sort_values(by="chamado_em", ascending=False)
 
     if not df_chamados.empty:
-        st.subheader("📢 Motoristas Chamados")
+    st.subheader("📢 Motoristas Chamados")
 
     for index, row in df_chamados.iterrows():
         tempo_espera = datetime.now() - pd.to_datetime(row["chamado_em"])
