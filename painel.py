@@ -74,14 +74,12 @@ def carregar_dados():
         df = pd.read_csv(ARQUIVO_CSV)
         if "chamado_em" in df.columns:
             df["chamado_em"] = pd.to_datetime(df["chamado_em"], errors="coerce")
-        if "cadastrado_em" in df.columns:
-            df["cadastrado_em"] = pd.to_datetime(df["cadastrado_em"], errors="coerce")
         return df
     except FileNotFoundError:
         df = pd.DataFrame(columns=[
             "motorista", "contato", "transportadora", "senha",
             "placa", "cliente", "vendedor", "destino", "doca",
-            "status", "chamado_em", "cadastrado_em"
+            "status", "chamado_em"
         ])
         salvar_dados(df)
         return df
@@ -111,20 +109,19 @@ if st.session_state["modo"] == "Painel ADM":
     df = carregar_dados()
     st.session_state["df_cache"] = df.copy()
 
+    if st.button("🧹 Limpar visualização"):
+        st.session_state["df_cache"] = pd.DataFrame(columns=df.columns)
+        st.success("Visualização limpa (dados salvos no CSV).")
+
     st.subheader("🚚 Lista de Motoristas")
     if not st.session_state["df_cache"].empty:
         for i, row in st.session_state["df_cache"].iterrows():
-            tempo_espera = datetime.now() - pd.to_datetime(row["cadastrado_em"])
-            minutos_espera = int(tempo_espera.total_seconds() // 60)
-            segundos_espera = int(tempo_espera.total_seconds() % 60)
-
-            col1, col2, col3, col4, col5, col6 = st.columns([3, 3, 2, 2, 2, 2])
+            col1, col2, col3, col4, col5 = st.columns([3, 3, 2, 2, 2])
             col1.markdown(f"**{row['motorista']}**")
             col2.write(f"Status: {row['status']}")
             col3.write(f"Placa: {row['placa']}")
             col4.write(f"Cliente: {row['cliente']}")
             col5.write(f"Vendedor: {row['vendedor']}")
-            col6.write(f"⏱️ {minutos_espera} min {segundos_espera} seg")  # Exibe o tempo de espera
     else:
         st.info("Nenhum motorista na visualização atual.")
 
@@ -157,7 +154,6 @@ if st.session_state["modo"] == "Painel ADM":
                         "doca": "",
                         "status": "Aguardando",
                         "chamado_em": pd.NaT,
-                        "cadastrado_em": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # Adiciona a data de cadastro
                     }
                     df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
                     salvar_dados(df)
@@ -217,7 +213,7 @@ else:
         st.subheader("📢 Motoristas Chamados")
 
     for index, row in df_chamados.iterrows():
-        tempo_espera = datetime.now() - pd.to_datetime(row["cadastrado_em"])  # Calcula tempo desde o cadastro
+        tempo_espera = datetime.now() - pd.to_datetime(row["chamado_em"])
         minutos_espera = int(tempo_espera.total_seconds() // 60)
         segundos_espera = int(tempo_espera.total_seconds() % 60)
 
@@ -239,3 +235,4 @@ else:
         if st.session_state["som_ativado"]:
             st.audio(SOM_ALERTA, format="audio/wav")
         st.session_state["som_tocado"] = True
+
