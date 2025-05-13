@@ -19,7 +19,6 @@ DATABASE_URL = "sqlite:///chamados.db"
 SOM_AMIGAVEL = os.path.join("assets", "chamada.mp3")
 MUSICAS = [
     "C:/users/bandm/Documents/Painel chamador/chamada.mp3",
-    # Adicione outras músicas se necessário
 ]
 
 # Inicialização
@@ -49,6 +48,7 @@ if "auto_update" not in st.session_state:
 
 # Funções
 def gerar_som():
+    """Gera o som de alerta se necessário."""
     if not os.path.exists(SOM_ALERTA):
         t = np.linspace(0, DURATION, int(SAMPLE_RATE * DURATION), False)
         wave = 0.5 * np.sin(2 * np.pi * FREQUENCY * t)
@@ -56,10 +56,12 @@ def gerar_som():
         write(SOM_ALERTA, SAMPLE_RATE, audio)
 
 def tocar_som():
+    """Toca o som de alerta."""
     with open(SOM_ALERTA, "rb") as file:
         st.audio(file.read(), format="audio/wav", start_time=0)
 
 def tocar_musica_aleatoria():
+    """Toca uma música aleatória da lista configurada."""
     musica_escolhida = random.choice(MUSICAS)  # Seleciona uma música aleatória
     if os.path.exists(musica_escolhida):
         st.audio(musica_escolhida, format="audio/mp3")
@@ -67,22 +69,21 @@ def tocar_musica_aleatoria():
         st.error(f"Música {musica_escolhida} não encontrada!")
 
 def alternar_som(ativo: bool):
+    """Ativa ou desativa o som."""
     st.session_state["som_ativado"] = ativo
 
 def carregar_dados():
+    """Carrega os dados do CSV e garante as colunas necessárias."""
     try:
         df = pd.read_csv(ARQUIVO_CSV)
-        # Garantir que as colunas de datas estejam no formato correto
         if "chamado_em" in df.columns:
             df["chamado_em"] = pd.to_datetime(df["chamado_em"], errors="coerce")
         if "cadastrado_em" in df.columns:
             df["cadastrado_em"] = pd.to_datetime(df["cadastrado_em"], errors="coerce")
         else:
-            # Adiciona a coluna 'cadastrado_em' se não existir
             df["cadastrado_em"] = pd.NaT
         return df
     except FileNotFoundError:
-        # Criar um DataFrame vazio com as colunas necessárias caso o arquivo não exista
         df = pd.DataFrame(columns=[
             "motorista", "contato", "transportadora", "senha",
             "placa", "cliente", "vendedor", "destino", "doca",
@@ -92,13 +93,22 @@ def carregar_dados():
         return df
 
 def salvar_dados(df):
+    """Salva o DataFrame no arquivo CSV."""
     df.to_csv(ARQUIVO_CSV, index=False)
 
-# Atualização automática usando st_autorefresh
+def formatar_tempo_espera(data):
+    """Calcula e retorna o tempo de espera formatado."""
+    if pd.isna(data):
+        return "N/A"
+    tempo = datetime.now() - data
+    minutos, segundos = divmod(int(tempo.total_seconds()), 60)
+    return f"{minutos} min {segundos} seg"
+
+# Atualização automática
 if st.session_state["auto_update"]:
     st.experimental_rerun()
 
-# Seletor de modo (sidebar)
+# Sidebar para navegação
 modo_atual = st.sidebar.radio(
     "Selecione o modo:",
     modo_opcoes,
@@ -110,7 +120,7 @@ modo_atual = st.sidebar.radio(
 if modo_atual != st.session_state["modo"]:
     st.session_state["modo"] = modo_atual
 
-# Painel ADM
+# Painel Administrativo
 if st.session_state["modo"] == "Painel ADM":
     st.header("📋 Painel Administrativo")
     df = carregar_dados()
@@ -119,21 +129,14 @@ if st.session_state["modo"] == "Painel ADM":
     st.subheader("🚚 Lista de Motoristas")
     if not st.session_state["df_cache"].empty:
         for i, row in st.session_state["df_cache"].iterrows():
-            # Calcular o tempo de espera desde o cadastro
-            if not pd.isna(row["cadastrado_em"]):
-                tempo_espera = datetime.now() - pd.to_datetime(row["cadastrado_em"])
-                minutos_espera = int(tempo_espera.total_seconds() // 60)
-                segundos_espera = int(tempo_espera.total_seconds() % 60)
-            else:
-                minutos_espera, segundos_espera = 0, 0
-
+            tempo_espera = formatar_tempo_espera(row["cadastrado_em"])
             col1, col2, col3, col4, col5, col6 = st.columns([3, 3, 2, 2, 2, 2])
             col1.markdown(f"**{row['motorista']}**")
             col2.write(f"Status: {row['status']}")
             col3.write(f"Placa: {row['placa']}")
             col4.write(f"Cliente: {row['cliente']}")
             col5.write(f"Vendedor: {row['vendedor']}")
-            col6.write(f"⏱️ {minutos_espera} min {segundos_espera} seg")  # Exibe o tempo de espera
+            col6.write(f"⏱️ {tempo_espera}")
     else:
         st.info("Nenhum motorista na visualização atual.")
 
@@ -150,7 +153,6 @@ if st.session_state["modo"] == "Painel ADM":
 
         if enviar:
             if nome and contato and transportadora and senha and placa and cliente and vendedor:
-                df = carregar_dados()
                 if nome in df["motorista"].values:
                     st.error("Motorista já registrado!")
                 else:
@@ -166,7 +168,7 @@ if st.session_state["modo"] == "Painel ADM":
                         "doca": "",
                         "status": "Aguardando",
                         "chamado_em": pd.NaT,
-                        "cadastrado_em": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # Adiciona a data de cadastro
+                        "cadastrado_em": datetime.now()
                     }
                     df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
                     salvar_dados(df)
@@ -226,13 +228,7 @@ else:
         st.subheader("📢 Motoristas Chamados")
 
     for index, row in df_chamados.iterrows():
-        if not pd.isna(row["cadastrado_em"]):
-            tempo_espera = datetime.now() - pd.to_datetime(row["cadastrado_em"])  # Calcula tempo desde o cadastro
-            minutos_espera = int(tempo_espera.total_seconds() // 60)
-            segundos_espera = int(tempo_espera.total_seconds() % 60)
-        else:
-            minutos_espera, segundos_espera = 0, 0
-
+        tempo_espera = formatar_tempo_espera(row["chamado_em"])
         st.markdown(
             f"""
             <div style='background-color: #f8d7da; padding: 20px; border-radius: 10px; border-left: 6px solid red; margin-bottom: 15px;'>
@@ -240,14 +236,12 @@ else:
                 <p style='font-size: 18px;'><strong>📦 Cliente:</strong> {row['cliente']}</p>
                 <p style='font-size: 20px;'><strong>📍 Doca:</strong> {row['doca']}</p>
                 <p style='font-size: 18px;'><strong>🛣️ Destino:</strong> {row['destino']}</p>
-                <p style='font-size: 16px; color: gray;'><strong>⏱️ Tempo de espera:</strong> {minutos_espera} min {segundos_espera} seg</p>
+                <p style='font-size: 16px; color: gray;'><strong>⏱️ Tempo de espera:</strong> {tempo_espera}</p>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-    # Som apenas para o primeiro da fila
-    if not st.session_state["som_tocado"]:
-        if st.session_state["som_ativado"]:
-            st.audio(SOM_ALERTA, format="audio/wav")
+    if not st.session_state["som_tocado"] and st.session_state["som_ativado"]:
+        st.audio(SOM_ALERTA, format="audio/wav")
         st.session_state["som_tocado"] = True
