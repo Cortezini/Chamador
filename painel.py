@@ -72,10 +72,9 @@ def tocar_som():
         gerar_som()  # Gera o som automaticamente se não existir
     try:
         with open(ALERT_PATH, 'rb') as f:
-            st.audio(f.read(), format='audio/wav')
+            st.audio(f.read(), format='audio/wav')  # Reproduz o som
     except Exception as e:
         st.error(f"Erro ao tentar reproduzir o som: {str(e)}")
-
 # ----- Leitura e gravação de dados -----
 def carregar_dados():
     try:
@@ -176,7 +175,8 @@ elif modo == 'Painel Pátio':
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ----- Painel Motorista -----
-else:
+
+if modo == 'Painel Motorista':
     st.subheader('Painel Motorista')
     chamados = df[df['status'] == 'Chamado'].sort_values('chamado_em', ascending=False)
     if chamados.empty:
@@ -191,13 +191,12 @@ else:
             st.write(f"Doca: {row['doca']}")
             st.write(f"Destino: {row['destino']}")
             st.write(f"Tempo: {m}m {s}s")
-            if som_ativo:
+            if st.session_state["som_ativado"] and not st.session_state["som_tocado"]:
                 tocar_som()
-                som_ativo = False
+                st.session_state["som_tocado"] = True  # Marca como tocado para evitar repetição
             st.markdown('</div>', unsafe_allow_html=True)
 
     # Som apenas para o primeiro da fila
-    if not st.session_state["som_tocado"]:
-        if st.session_state["som_ativado"]:
-            tocar_som()
+    if not st.session_state["som_tocado"] and st.session_state["som_ativado"]:
+        tocar_som()
         st.session_state["som_tocado"] = True
