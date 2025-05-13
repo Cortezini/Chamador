@@ -212,23 +212,25 @@ else:
     if not df_chamados.empty:
         st.subheader("📢 Últimos Chamados")
 
-        ultimo = df_chamados.iloc[0]
-        st.markdown(
-            f"""
-            <div style='background-color: #d4edda; padding: 20px; border-radius: 10px; border-left: 6px solid green;'>
-                <h3>🚛 {ultimo['motorista']}</h3>
-                <p><strong>Doca:</strong> {ultimo['doca']}</p>
-                <p><strong>Destino:</strong> {ultimo['destino']}</p>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
+    ultimo = df_chamados.iloc[0]
+    tempo_espera = datetime.now() - pd.to_datetime(ultimo["chamado_em"])
+    minutos_espera = int(tempo_espera.total_seconds() // 60)
+    segundos_espera = int(tempo_espera.total_seconds() % 60)
 
-        # Som automático para novos chamados
-        if not st.session_state["som_tocado"]:
-            if st.session_state["som_ativado"]:
-                st.audio(SOM_ALERTA, format="audio/wav")
-            st.session_state["som_tocado"] = True
-    else:
-        st.info("Nenhum motorista chamado no momento.")
-        st.session_state["som_tocado"] = False
+    st.markdown(
+        f"""
+        <div style='background-color: #f8d7da; padding: 30px; border-radius: 10px; border-left: 6px solid red;'>
+            <h2 style='color:#721c24;'>🚛 {ultimo['motorista']}</h2>
+            <p style='font-size: 22px;'><strong>📦 Cliente:</strong> {ultimo['cliente']}</p>
+            <p style='font-size: 26px;'><strong>📍 Doca:</strong> {ultimo['doca']}</p>
+            <p style='font-size: 20px;'><strong>🛣️ Destino:</strong> {ultimo['destino']}</p>
+            <p style='font-size: 18px; color: gray;'><strong>⏱️ Tempo de espera:</strong> {minutos_espera} min {segundos_espera} seg</p>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+    if not st.session_state["som_tocado"]:
+        if st.session_state["som_ativado"]:
+            st.audio(SOM_ALERTA, format="audio/wav")
+        st.session_state["som_tocado"] = True
