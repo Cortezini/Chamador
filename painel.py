@@ -9,6 +9,14 @@ import random
 # ----- Configurações -----
 st.set_page_config(page_title='Sistema de Chamadas', layout='wide', page_icon='🚛')  # DEVE SER O PRIMEIRO COMANDO
 
+# Inicialização do session_state
+if "som_tocado" not in st.session_state:
+    st.session_state["som_tocado"] = False  # Inicializa com False ou qualquer valor padrão necessário
+if "som_ativado" not in st.session_state:
+    st.session_state["som_ativado"] = True
+if "auto_update" not in st.session_state:
+    st.session_state["auto_update"] = False
+
 # ----- Estilo customizado com CSS -----
 custom_css = '''
 :root {
