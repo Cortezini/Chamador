@@ -102,7 +102,7 @@ if auto_update:
     st.experimental_rerun()
 
 # ----- Título -----
-st.markdown('<div class=\'header\'>🚛 Sistema de Chamadas Moderno</div>', unsafe_allow_html=True)
+st.markdown('<div class=\'header\'>assets/bdm.ico Painel de Chamadas BDM</div>', unsafe_allow_html=True)
 
 df = carregar_dados()
 
