@@ -65,8 +65,13 @@ CONFIGURACOES = {
 # ==================================================
 
 ESTADO_INICIAL = {
-    'atualizar_patio': False,
-    'atualizar_motoristas': False
+    'ultima_atualizacao': datetime.now(),
+    'ultimo_chamado': None,
+    'alerta_reproduzido': False,
+    'audio_habilitado': True,
+    'atualizacao_automatica': False,
+    'modo_atual': None,
+    'feedback_patio': None
 }
 
 def inicializar_estado_aplicacao():
@@ -274,9 +279,17 @@ class ModuloAdministrativo:
     @staticmethod
     def _adicionar_novo_registro(dataframe, dados):
         """Adiciona novo registro ao DataFrame"""
-        # ... código existente ...
+        novo_registro = {
+            **dados,
+            'destino': '',
+            'doca': '',
+            'status': 'Aguardando',
+            'chamado_em': pd.NaT,
+            'finalizado_em': pd.NaT
+        }
+        novo_registro['placa'] = novo_registro['placa'].upper().replace('-', '')
+        dataframe = pd.concat([dataframe, pd.DataFrame([novo_registro])], ignore_index=True)
         GerenciadorDados.salvar_registros(dataframe)
-        st.session_state.atualizar_patio = True  # Nova linha
         st.success('Cadastro realizado!')
         st.balloons()
 
@@ -306,10 +319,14 @@ class ModuloPatioOperacional:
     @classmethod
     def exibir_painel(cls, dataframe):
         """Interface principal do módulo de pátio"""
-        # Verificar necessidade de atualização
-        if st.session_state.atualizar_patio:
-            dataframe = GerenciadorDados.carregar_registros()
-            st.session_state.atualizar_patio = False
+        st.subheader("Controle Operacional do Pátio")
+        ComponentesInterface.exibir_notificacao()
+        
+        operacoes_ativas = dataframe[dataframe['status'].isin(['Chamado', 'Em Progresso'])]
+        if not operacoes_ativas.empty:
+            cls._exibir_operacoes_ativas(operacoes_ativas, dataframe)
+        
+        cls._exibir_chamados_aguardando(dataframe)
 
     @classmethod
     def _exibir_operacoes_ativas(cls, operacoes, dataframe):
@@ -350,20 +367,16 @@ class ModuloPatioOperacional:
     @classmethod
     def _atualizar_operacao(cls, dataframe, indice, doca, destino):
         """Atualiza informações da operação"""
-        # ... código existente ...
-        st.session_state.atualizar_motoristas = True  # Nova linha
-
-    @classmethod
-    def _finalizar_operacao(cls, dataframe, indice):
-        """Finaliza uma operação em andamento"""
-        # ... código existente ...
-        st.session_state.atualizar_motoristas = True  # Nova linha
-
-    @classmethod
-    def _iniciar_operacao(cls, dataframe, indice, doca, destino):
-        """Inicia uma nova operação"""
-        # ... código existente ...
-        st.session_state.atualizar_motoristas = True  # Nova linha
+        try:
+            dataframe.at[indice, 'doca'] = doca
+            dataframe.at[indice, 'destino'] = destino
+            dataframe.at[indice, 'status'] = 'Em Progresso'
+            GerenciadorDados.salvar_registros(dataframe)
+            st.session_state.feedback_patio = ('sucesso', f'Doca {doca} atualizada!')
+            st.rerun()
+        except Exception as erro:
+            st.session_state.feedback_patio = ('erro', f'Falha na atualização: {str(erro)}')
+            st.rerun()
 
     @classmethod
     def _finalizar_operacao(cls, dataframe, indice):
@@ -446,12 +459,13 @@ class ModuloMotoristas:
         ].sort_values('chamado_em', ascending=False)
 
     @classmethod
-    def exibir_painel(cls, dataframe):
-        """Interface principal do módulo de motoristas"""
-        # Verificar necessidade de atualização
-        if st.session_state.atualizar_motoristas:
-            dataframe = GerenciadorDados.carregar_registros()
-            st.session_state.atualizar_motoristas = False
+    def _verificar_novo_chamado(cls, operacoes):
+        """Verifica e controla reprodução de alerta"""
+        ultimo_chamado = operacoes.iloc[0]['chamado_em']
+        
+        if st.session_state.ultimo_chamado != ultimo_chamado:
+            st.session_state.ultimo_chamado = ultimo_chamado
+            st.session_state.alerta_reproduzido = False
         
         if not st.session_state.alerta_reproduzido and st.session_state.audio_habilitado:
             cls._reproduzir_alerta()
