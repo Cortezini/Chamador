@@ -341,62 +341,68 @@ h3 {
     color: #155724;
 }
 
-/* Estilização do feedback */
-.stAlert {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 999;
-    min-width: 300px;
-    border-left: 4px solid #00C853;
-    animation: slideIn 0.3s ease-out;
-}
-
 @keyframes slideIn {
     from { transform: translateX(100%); }
     to { transform: translateX(0); }
 }
 
-/* ================ FEEDBACK NOTIFICAÇÕES ================ */
-.stAlert {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    z-index: 1000;
+/* ================ NOTIFICAÇÕES DE FEEDBACK ================ */
+div[data-testid="stNotification"] {
+    position: fixed !important;
+    top: 20px !important;
+    right: 20px !important;
+    z-index: 9999 !important;
     min-width: 300px;
-    border-radius: 8px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-    animation: slideIn 0.3s ease-out;
-    border-left: 4px solid transparent;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+    animation: slideIn 0.3s ease-out !important;
+    border-left: 4px solid transparent !important;
+    overflow: visible !important;
+    transform: none !important;
+    background: white;
+    padding: 0 !important;
+    margin: 0 !important;
 }
 
-.stAlert .alert-content {
-    padding: 1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    font-size: 0.95rem;
+div[data-testid="stNotification"] > div {
+    padding: 1rem !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 0.75rem !important;
+    font-size: 0.95rem !important;
+    margin: 0 !important;
 }
 
-.success-alert {
-    background: #d4edda;
-    border-color: #28a745;
-    color: #155724;
+div[data-testid="stNotification"].success-alert {
+    background: #d4edda !important;
+    border-color: #28a745 !important;
+    color: #155724 !important;
 }
 
-.error-alert {
-    background: #f8d7da;
-    border-color: #dc3545;
-    color: #721c24;
+div[data-testid="stNotification"].error-alert {
+    background: #f8d7da !important;
+    border-color: #dc3545 !important;
+    color: #721c24 !important;
 }
 
 @keyframes slideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
+    from { 
+        transform: translateX(100%) !important;
+        opacity: 0 !important;
+    }
+    to { 
+        transform: translateX(0) !important;
+        opacity: 1 !important;
+    }
 }
 
-/* Garantir visibilidade sobre outros elementos */
-.stAlert {
-    z-index: 1000 !important;
+/* Garantir que não haja overflow escondendo a notificação */
+section.main {
+    overflow: visible !important;
+}
+
+div.block-container {
+    overflow: visible !important;
+    padding-top: 2rem !important;
 }
 
