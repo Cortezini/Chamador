@@ -19,6 +19,7 @@ DATABASE_URL = "sqlite:///chamados.db"
 SOM_AMIGAVEL = os.path.join("assets", "chamada.mp3")
 MUSICAS = [
     "C:/users/bandm/Documents/Painel chamador/chamada.mp3",
+    # Adicione outras músicas se necessário
 ]
 
 # Inicialização
@@ -26,12 +27,15 @@ st.set_page_config(page_title="Sistema de Chamadas", layout="wide")
 st.title("🚛 Sistema de Chamadas de Motoristas")
 engine = create_engine(DATABASE_URL)
 
+# Tempo para atualização automática (em segundos)
 AUTO_UPDATE_INTERVAL = 5
 
+# Carregar parâmetros da URL
 query_params = st.query_params
 modo_url = query_params.get("modo", [None])[0]
 modo_opcoes = ["Painel ADM", "Painel Pátio", "Painel Motorista"]
 
+# Inicialização do session_state
 if "modo" not in st.session_state:
     st.session_state["modo"] = modo_url if modo_url in modo_opcoes else "Painel Motorista"
 if "som_ativado" not in st.session_state:
@@ -56,7 +60,7 @@ def tocar_som():
         st.audio(file.read(), format="audio/wav", start_time=0)
 
 def tocar_musica_aleatoria():
-    musica_escolhida = random.choice(MUSICAS)
+    musica_escolhida = random.choice(MUSICAS)  # Seleciona uma música aleatória
     if os.path.exists(musica_escolhida):
         st.audio(musica_escolhida, format="audio/mp3")
     else:
@@ -83,10 +87,11 @@ def carregar_dados():
 def salvar_dados(df):
     df.to_csv(ARQUIVO_CSV, index=False)
 
-# Atualização automática manual
+# Atualização automática usando st_autorefresh
 if st.session_state["auto_update"]:
-    st.experimental_rerun()
+    st.rerun()(interval=AUTO_UPDATE_INTERVAL * 1000, key="auto_refresh")
 
+# Seletor de modo (sidebar)
 modo_atual = st.sidebar.radio(
     "Selecione o modo:",
     modo_opcoes,
@@ -94,6 +99,7 @@ modo_atual = st.sidebar.radio(
     key="modo_radio"
 )
 
+# Atualiza session_state se mudar
 if modo_atual != st.session_state["modo"]:
     st.session_state["modo"] = modo_atual
 
@@ -209,16 +215,16 @@ else:
         ultimo = df_chamados.iloc[0]
         st.markdown(
             f"""
-            <div style='background-color: #f8d7da; padding: 30px; border-radius: 10px; border-left: 6px solid red;'>
-                <h2 style='color:#721c24;'>🚛 {ultimo['motorista']}</h2>
-                <p style='font-size: 22px;'><strong>📦 Cliente:</strong> {ultimo['cliente']}</p>
-                <p style='font-size: 26px;'><strong>📍 Doca:</strong> {ultimo['doca']}</p>
-                <p style='font-size: 20px;'><strong>🛣️ Destino:</strong> {ultimo['destino']}</p>
+            <div style='background-color: #d4edda; padding: 20px; border-radius: 10px; border-left: 6px solid green;'>
+                <h3>🚛 {ultimo['motorista']}</h3>
+                <p><strong>Doca:</strong> {ultimo['doca']}</p>
+                <p><strong>Destino:</strong> {ultimo['destino']}</p>
             </div>
             """,
             unsafe_allow_html=True
         )
 
+        # Som automático para novos chamados
         if not st.session_state["som_tocado"]:
             if st.session_state["som_ativado"]:
                 st.audio(SOM_ALERTA, format="audio/wav")
