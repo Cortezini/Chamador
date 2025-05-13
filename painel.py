@@ -72,14 +72,21 @@ def alternar_som(ativo: bool):
 def carregar_dados():
     try:
         df = pd.read_csv(ARQUIVO_CSV)
+        # Garantir que as colunas de datas estejam no formato correto
         if "chamado_em" in df.columns:
             df["chamado_em"] = pd.to_datetime(df["chamado_em"], errors="coerce")
+        if "cadastrado_em" in df.columns:
+            df["cadastrado_em"] = pd.to_datetime(df["cadastrado_em"], errors="coerce")
+        else:
+            # Adiciona a coluna 'cadastrado_em' se não existir
+            df["cadastrado_em"] = pd.NaT
         return df
     except FileNotFoundError:
+        # Criar um DataFrame vazio com as colunas necessárias caso o arquivo não exista
         df = pd.DataFrame(columns=[
             "motorista", "contato", "transportadora", "senha",
             "placa", "cliente", "vendedor", "destino", "doca",
-            "status", "chamado_em"
+            "status", "chamado_em", "cadastrado_em"
         ])
         salvar_dados(df)
         return df
@@ -89,7 +96,7 @@ def salvar_dados(df):
 
 # Atualização automática usando st_autorefresh
 if st.session_state["auto_update"]:
-    st.rerun()(interval=AUTO_UPDATE_INTERVAL * 1000, key="auto_refresh")
+    st.experimental_rerun()
 
 # Seletor de modo (sidebar)
 modo_atual = st.sidebar.radio(
@@ -109,19 +116,24 @@ if st.session_state["modo"] == "Painel ADM":
     df = carregar_dados()
     st.session_state["df_cache"] = df.copy()
 
-    if st.button("🧹 Limpar visualização"):
-        st.session_state["df_cache"] = pd.DataFrame(columns=df.columns)
-        st.success("Visualização limpa (dados salvos no CSV).")
-
     st.subheader("🚚 Lista de Motoristas")
     if not st.session_state["df_cache"].empty:
         for i, row in st.session_state["df_cache"].iterrows():
-            col1, col2, col3, col4, col5 = st.columns([3, 3, 2, 2, 2])
+            # Calcular o tempo de espera desde o cadastro
+            if not pd.isna(row["cadastrado_em"]):
+                tempo_espera = datetime.now() - pd.to_datetime(row["cadastrado_em"])
+                minutos_espera = int(tempo_espera.total_seconds() // 60)
+                segundos_espera = int(tempo_espera.total_seconds() % 60)
+            else:
+                minutos_espera, segundos_espera = 0, 0
+
+            col1, col2, col3, col4, col5, col6 = st.columns([3, 3, 2, 2, 2, 2])
             col1.markdown(f"**{row['motorista']}**")
             col2.write(f"Status: {row['status']}")
             col3.write(f"Placa: {row['placa']}")
             col4.write(f"Cliente: {row['cliente']}")
             col5.write(f"Vendedor: {row['vendedor']}")
+            col6.write(f"⏱️ {minutos_espera} min {segundos_espera} seg")  # Exibe o tempo de espera
     else:
         st.info("Nenhum motorista na visualização atual.")
 
@@ -154,6 +166,7 @@ if st.session_state["modo"] == "Painel ADM":
                         "doca": "",
                         "status": "Aguardando",
                         "chamado_em": pd.NaT,
+                        "cadastrado_em": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),  # Adiciona a data de cadastro
                     }
                     df = pd.concat([df, pd.DataFrame([novo])], ignore_index=True)
                     salvar_dados(df)
@@ -213,9 +226,12 @@ else:
         st.subheader("📢 Motoristas Chamados")
 
     for index, row in df_chamados.iterrows():
-        tempo_espera = datetime.now() - pd.to_datetime(row["chamado_em"])
-        minutos_espera = int(tempo_espera.total_seconds() // 60)
-        segundos_espera = int(tempo_espera.total_seconds() % 60)
+        if not pd.isna(row["cadastrado_em"]):
+            tempo_espera = datetime.now() - pd.to_datetime(row["cadastrado_em"])  # Calcula tempo desde o cadastro
+            minutos_espera = int(tempo_espera.total_seconds() // 60)
+            segundos_espera = int(tempo_espera.total_seconds() % 60)
+        else:
+            minutos_espera, segundos_espera = 0, 0
 
         st.markdown(
             f"""
@@ -235,4 +251,3 @@ else:
         if st.session_state["som_ativado"]:
             st.audio(SOM_ALERTA, format="audio/wav")
         st.session_state["som_tocado"] = True
-
