@@ -69,15 +69,6 @@ def load_external_css(file_path: str):
     except FileNotFoundError:
         st.error(f"Arquivo de estilo não encontrado: {file_path}")
 
-def get_image_base64(path: str) -> str:
-    """Converte imagem para base64"""
-    try:
-        with open(path, "rb") as f:
-            return base64.b64encode(f.read()).decode()
-    except FileNotFoundError:
-        st.error(f"Imagem não encontrada: {path}")
-        return ""
-
 # ================ GERENCIAMENTO DE ÁUDIO ================
 def ensure_alert_sound():
     """Garante a existência do arquivo de som"""
@@ -95,11 +86,12 @@ def generate_alert_sound():
 
 def play_alert_sound():
     """Reproduz o som de alerta"""
-    if st.session_state.som_ativado:
+    if st.session_state.som_ativado and not st.session_state.sound_played:
         try:
             with open(CONFIG['sound_settings']['alert_path'], 'rb') as f:
                 audio_bytes = f.read()
                 st.audio(audio_bytes, format='audio/wav', autoplay=True)
+                st.session_state.sound_played = True
         except Exception as e:
             st.error(f"Falha ao reproduzir som: {str(e)}")
 
@@ -117,7 +109,6 @@ def load_data() -> pd.DataFrame:
             parse_dates=['chamado_em'],
             dtype={col: str for col in columns if col != 'chamado_em'}
         )
-        # Garante campos vazios como string
         df['doca'] = df['doca'].fillna('')
         df['destino'] = df['destino'].fillna('')
         return df
@@ -137,10 +128,9 @@ def save_data(df: pd.DataFrame):
 # ================ COMPONENTES DA INTERFACE ================
 def render_header():
     """Renderiza o cabeçalho"""
-    img_base64 = get_image_base64(CONFIG['page_icon'])
     st.markdown(f'''
         <div class='header'>
-            <img src="data:image/x-icon;base64,{img_base64}" width="30">
+            <img src="{CONFIG['page_icon']}" width="30">
             Painel de Chamadas BDM
         </div>
     ''', unsafe_allow_html=True)
@@ -165,7 +155,7 @@ def render_admin_panel(df: pd.DataFrame):
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Cadastrados", len(df))
         col2.metric("Aguardando", len(df[df['status'] == 'Aguardando']))
-        col3.metric("Em Operação", len(df[df['status'] == 'Chamado']))
+        col3.metric("Em Operação", len(df[df['status'].isin(['Chamado', 'Em Progresso'])]))  # Linha corrigida
 
     with st.form("Novo Motorista", clear_on_submit=True):
         st.markdown("**Dados Obrigatórios** (*)")
@@ -175,42 +165,36 @@ def render_admin_panel(df: pd.DataFrame):
         with col1:
             motorista = st.text_input(
                 'Nome Completo*',
-                placeholder="Ex: João da Silva",
-                help="Nome completo conforme documento oficial"
+                placeholder="Ex: João da Silva"
             )
             
             contato = st.text_input(
                 'Contato*', 
                 max_chars=15,
-                placeholder="(XX) 99999-9999",
-                help="Número para contato imediato"
+                placeholder="(XX) 99999-9999"
             )
             
             placa = st.text_input(
                 'Placa do Veículo*',
-                max_chars=8,
-                placeholder="AAA0A00",
-                help="Formato Mercosul ou antigo"
+                max_chars=7,
+                placeholder="AAA0A00"
             )
 
         with col2:
             senha = st.text_input(
                 'Senha de Acesso',
                 max_chars=3,
-                placeholder="123",
-                help="3 dígitos numéricos"
+                placeholder="123"
             )
             
             transportadora = st.text_input(
                 'Transportadora*',
-                placeholder="Nome completo da empresa",
-                help="Razão social cadastrada"
+                placeholder="Nome da transportadora"
             )
             
             cliente = st.text_input(
                 'Cliente',
-                placeholder="Destinatário da carga",
-                help="Empresa beneficiária"
+                placeholder="Destinatário da carga"
             )
 
         vendedor = st.text_input('Vendedor Responsável')
@@ -261,7 +245,7 @@ def render_admin_panel(df: pd.DataFrame):
         column_config={
             "status": st.column_config.SelectboxColumn(
                 "Status",
-                options=["Aguardando", "Chamado", "Finalizado"],
+                options=["Aguardando", "Chamado", "Em Progresso", "Finalizado"],
                 default="Aguardando"
             )
         }
@@ -272,86 +256,139 @@ def render_yard_panel(df: pd.DataFrame):
     """Interface de Controle Operacional"""
     st.subheader("Controle de Docas")
     
-    with st.expander("➕ Nova Operação", expanded=True):
-        aguardando = df[df['status'] == 'Aguardando']
-        
-        if aguardando.empty:
-            st.info('Nenhum motorista aguardando')
-            return
-
-        for idx, row in aguardando.iterrows():
+    # Mostrar operações em andamento
+    operacoes_ativas = df[df['status'].isin(['Chamado', 'Em Progresso'])]
+    
+    if not operacoes_ativas.empty:
+        st.markdown("### Operações em Andamento")
+        for idx, row in operacoes_ativas.iterrows():
             with st.container(border=True):
-                cols = st.columns([3, 1, 1, 2])
+                cols = st.columns([3, 1, 1, 2, 2])
                 
+                # Coluna 1: Informações básicas
                 cols[0].markdown(f"""
                 **Motorista:** {row['motorista']}  
                 **Transportadora:** {row['transportadora']}  
-                **Cliente:** {row['cliente']}
+                **Placa:** `{row['placa']}`
                 """)
                 
-                cols[1].metric("Placa", row['placa'])
-                cols[2].metric("Senha", row['senha'])
+                # Coluna 2: Doca atual
+                cols[1].markdown(f"**Doca Atual:**  \n`{row['doca'] or '---'}`")
                 
+                # Coluna 3: Destino atual
+                cols[2].markdown(f"**Destino Atual:**  \n`{row['destino'] or '---'}`")
+                
+                # Coluna 4: Campos de edição
                 with cols[3]:
-                    with st.form(key=f'form_{idx}'):
-                        doca = st.text_input(
-                            "Nº Doca",
-                            value='',
-                            key=f'doca_{idx}',
-                            placeholder="Digite o número",
-                            max_chars=3
-                        )
-                        
-                        destino = st.text_input(
-                            "Destino Final",
-                            value='',
-                            key=f'dest_{idx}',
-                            placeholder="Informe o destino",
-                            max_chars=20
-                        )
-                        
-                        if st.form_submit_button("Iniciar Operação", type='primary'):
-                            df.at[idx, 'status'] = 'Chamado'
-                            df.at[idx, 'chamado_em'] = datetime.now()
-                            df.at[idx, 'doca'] = doca
-                            df.at[idx, 'destino'] = destino
-                            save_data(df)
-                            st.session_state.last_call = datetime.now()
-                            st.rerun()
+                    nova_doca = st.text_input(
+                        "Nova Doca",
+                        value=row['doca'],
+                        key=f'nova_doca_{idx}',
+                        placeholder="Digite o novo número",
+                        help="Atualize o número da doca",
+                        label_visibility="collapsed"
+                    )
+                    
+                with cols[4]:
+                    novo_destino = st.text_input(
+                        "Novo Destino",
+                        value=row['destino'],
+                        key=f'novo_destino_{idx}',
+                        placeholder="Informe novo destino",
+                        help="Atualize o destino",
+                        label_visibility="collapsed"
+                    )
+                
+                # Botões de ação
+                col_btn1, col_btn2, _ = st.columns([2, 2, 6])
+                with col_btn1:
+                    if st.button("🔄 Atualizar", key=f'update_{idx}', 
+                               help="Aplicar novas configurações"):
+                        df.at[idx, 'doca'] = nova_doca
+                        df.at[idx, 'destino'] = novo_destino
+                        df.at[idx, 'status'] = 'Em Progresso'
+                        save_data(df)
+                        st.rerun()
+                
+                with col_btn2:
+                    if st.button("✅ Finalizar", key=f'finish_{idx}', type='primary',
+                               help="Encerrar operação"):
+                        df.at[idx, 'status'] = 'Finalizado'
+                        save_data(df)
+                        st.rerun()
+
+    # Mostrar motoristas aguardando
+    st.markdown("### Novos Chamados")
+    aguardando = df[df['status'] == 'Aguardando']
+    
+    if aguardando.empty:
+        st.info('Nenhum motorista aguardando')
+        return
+
+    for idx, row in aguardando.iterrows():
+        with st.container(border=True):
+            cols = st.columns([3, 1, 1, 2])
+            
+            cols[0].markdown(f"""
+            **Motorista:** {row['motorista']}  
+            **Transportadora:** {row['transportadora']}
+            """)
+            
+            cols[1].metric("Placa", row['placa'])
+            cols[2].metric("Senha", row['senha'])
+            
+            with cols[3]:
+                doca = st.text_input(
+                    "Doca Inicial",
+                    key=f'doca_{idx}',
+                    placeholder="Nº da doca"
+                )
+                destino = st.text_input(
+                    "Destino Inicial",
+                    key=f'dest_{idx}',
+                    placeholder="Local de carga"
+                )
+                
+                if st.button("▶️ Iniciar Operação", key=f'start_{idx}'):
+                    df.at[idx, 'status'] = 'Chamado'
+                    df.at[idx, 'chamado_em'] = datetime.now()
+                    df.at[idx, 'doca'] = doca
+                    df.at[idx, 'destino'] = destino
+                    save_data(df)
+                    st.session_state.last_call = datetime.now()
+                    st.rerun()
 
 # ================ PAINEL MOTORISTA ================
 def render_driver_panel(df: pd.DataFrame):
     """Interface de Informações para Motoristas"""
     st.subheader("Painel de Orientação")
     
-    # Verificar novos chamados
-    current_calls = df[df['status'] == 'Chamado']
-    if not current_calls.empty:
-        latest_call = current_calls.iloc[0]['chamado_em']
-        
-        if st.session_state.last_call != latest_call:
-            play_alert_sound()
-            st.session_state.last_call = latest_call
-            st.session_state.sound_played = True
+    # Verificar operações ativas
+    operacoes = df[df['status'].isin(['Chamado', 'Em Progresso'])].sort_values('chamado_em', ascending=False)
     
-    # Exibir informações
-    if current_calls.empty:
+    if operacoes.empty:
         st.info('Nenhuma operação ativa no momento')
+        st.session_state.sound_played = False
         return
 
-    operacao = current_calls.iloc[0]
-    
+    # Verificar novo chamado
+    ultima_operacao = operacoes.iloc[0]['chamado_em']
+    if st.session_state.last_call != ultima_operacao:
+        play_alert_sound()
+        st.session_state.last_call = ultima_operacao
+        st.session_state.sound_played = False
+
+    # Exibir operação atual
+    operacao = operacoes.iloc[0]
     with st.container(border=True):
         cols = st.columns([2, 1, 1, 2])
         
-        # Informações Principais
         cols[0].markdown(f"""
         ### {operacao['motorista']}
         **Placa:** {operacao['placa']}  
         **Transportadora:** {operacao['transportadora']}
         """)
         
-        # Doca com destaque
         cols[1].markdown(f"""
         <div style="font-size:26px; color:{CONFIG['colors']['primary']}; 
                     font-weight:bold; text-align:center;">
@@ -360,7 +397,6 @@ def render_driver_panel(df: pd.DataFrame):
         </div>
         """, unsafe_allow_html=True)
         
-        # Destino com destaque
         cols[2].markdown(f"""
         <div style="font-size:26px; color:{CONFIG['colors']['text']}; 
                     font-weight:bold; text-align:center;">
@@ -369,30 +405,10 @@ def render_driver_panel(df: pd.DataFrame):
         </div>
         """, unsafe_allow_html=True)
         
-        # Detalhes Temporais
         cols[3].markdown(f"""
         **Início da Operação:**  
         {operacao['chamado_em'].strftime('%d/%m/%Y %H:%M')}
         """)
-
-    # Histórico de Chamados
-    st.divider()
-    st.markdown("### Histórico Recente")
-    
-    historico = df[df['status'] == 'Chamado'].sort_values('chamado_em', ascending=False).iloc[1:]
-    
-    if historico.empty:
-        st.info('Nenhuma operação anterior registrada')
-        return
-
-    for _, row in historico.iterrows():
-        with st.container(border=True):
-            cols = st.columns([3, 1, 1, 2])
-            
-            cols[0].markdown(f"**{row['motorista']}**")
-            cols[1].markdown(f"`Doca {row['doca']}`")
-            cols[2].markdown(f"`{row['destino']}`")
-            cols[3].markdown(f"_{row['chamado_em'].strftime('%d/%m %H:%M')}_")
 
 # ================ EXECUÇÃO PRINCIPAL ================
 def main():
