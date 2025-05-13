@@ -4,7 +4,7 @@ import numpy as np
 import re
 import os
 import base64
-from datetime import datetime
+from datetime import datetime, timedelta
 from scipy.io.wavfile import write
 from pathlib import Path
 
@@ -37,10 +37,12 @@ CONFIG = {
 
 # ================ INICIALIZAÇÃO DO SESSION STATE ================
 SESSION_DEFAULTS = {
-    'last_call': None,
+    'last_update': datetime.now(),
+    'last_call_time': None,
     'sound_played': False,
     'som_ativado': True,
-    'auto_update': False
+    'auto_update': False,
+    'current_mode': None
 }
 
 for key, value in SESSION_DEFAULTS.items():
@@ -85,7 +87,7 @@ def generate_alert_sound():
     write(str(settings['alert_path']), settings['sample_rate'], audio)
 
 def play_alert_sound():
-    """Reproduz o som de alerta"""
+    """Reproduz o som de alerta uma única vez por chamado"""
     if st.session_state.som_ativado and not st.session_state.sound_played:
         try:
             with open(CONFIG['sound_settings']['alert_path'], 'rb') as f:
@@ -127,13 +129,26 @@ def save_data(df: pd.DataFrame):
 
 # ================ COMPONENTES DA INTERFACE ================
 def render_header():
-    """Renderiza o cabeçalho"""
-    st.markdown(f'''
-        <div class='header'>
-            <img src="{CONFIG['page_icon']}" width="30">
-            Painel de Chamadas BDM
-        </div>
-    ''', unsafe_allow_html=True)
+    """Renderiza o cabeçalho com ícone correto"""
+    try:
+        # Converter o ícone para base64
+        with open(CONFIG['page_icon'], "rb") as f:
+            icon_data = base64.b64encode(f.read()).decode()
+        
+        st.markdown(f'''
+            <div class='header'>
+                <img src="data:image/x-icon;base64,{icon_data}" width="30" style="vertical-align: middle;">
+                Painel de Chamadas BDM
+            </div>
+        ''', unsafe_allow_html=True)
+        
+    except FileNotFoundError:
+        st.error("Ícone não encontrado em: {}".format(CONFIG['page_icon']))
+        st.markdown('''
+            <div class='header'>
+                Painel de Chamadas BDM
+            </div>
+        ''', unsafe_allow_html=True)
 
 def render_controls() -> dict:
     """Renderiza os controles da sidebar"""
@@ -142,8 +157,7 @@ def render_controls() -> dict:
         return {
             'modo': st.selectbox('Modo', ['Painel ADM', 'Painel Pátio', 'Painel Motorista']),
             'som_ativado': st.checkbox('Som Ativo', st.session_state.som_ativado),
-            'auto_update': st.checkbox('Auto Refresh', st.session_state.auto_update),
-            'intervalo': st.slider('Intervalo (s)', 1, 30, 5)
+            'auto_update': st.checkbox('Auto Refresh (15s)', st.session_state.auto_update)
         }
 
 # ================ PAINEL ADMINISTRATIVO ================
@@ -155,7 +169,7 @@ def render_admin_panel(df: pd.DataFrame):
         col1, col2, col3 = st.columns(3)
         col1.metric("Total Cadastrados", len(df))
         col2.metric("Aguardando", len(df[df['status'] == 'Aguardando']))
-        col3.metric("Em Operação", len(df[df['status'].isin(['Chamado', 'Em Progresso'])]))  # Linha corrigida
+        col3.metric("Em Operação", len(df[df['status'].isin(['Chamado', 'Em Progresso'])]))
 
     with st.form("Novo Motorista", clear_on_submit=True):
         st.markdown("**Dados Obrigatórios** (*)")
@@ -265,28 +279,21 @@ def render_yard_panel(df: pd.DataFrame):
             with st.container(border=True):
                 cols = st.columns([3, 1, 1, 2, 2])
                 
-                # Coluna 1: Informações básicas
                 cols[0].markdown(f"""
                 **Motorista:** {row['motorista']}  
                 **Transportadora:** {row['transportadora']}  
                 **Placa:** `{row['placa']}`
                 """)
                 
-                # Coluna 2: Doca atual
-                cols[1].markdown(f"**Doca Atual:**  \n`{row['doca'] or '---'}`")
+                cols[1].markdown(f"**Doca:**  \n`{row['doca'] or '---'}`")
+                cols[2].markdown(f"**Destino:**  \n`{row['destino'] or '---'}`")
                 
-                # Coluna 3: Destino atual
-                cols[2].markdown(f"**Destino Atual:**  \n`{row['destino'] or '---'}`")
-                
-                # Coluna 4: Campos de edição
                 with cols[3]:
                     nova_doca = st.text_input(
                         "Nova Doca",
                         value=row['doca'],
                         key=f'nova_doca_{idx}',
-                        placeholder="Digite o novo número",
-                        help="Atualize o número da doca",
-                        label_visibility="collapsed"
+                        placeholder="Nº doca"
                     )
                     
                 with cols[4]:
@@ -294,16 +301,12 @@ def render_yard_panel(df: pd.DataFrame):
                         "Novo Destino",
                         value=row['destino'],
                         key=f'novo_destino_{idx}',
-                        placeholder="Informe novo destino",
-                        help="Atualize o destino",
-                        label_visibility="collapsed"
+                        placeholder="Localização"
                     )
                 
-                # Botões de ação
-                col_btn1, col_btn2, _ = st.columns([2, 2, 6])
+                col_btn1, col_btn2 = st.columns(2)
                 with col_btn1:
-                    if st.button("🔄 Atualizar", key=f'update_{idx}', 
-                               help="Aplicar novas configurações"):
+                    if st.button("🔄 Atualizar", key=f'update_{idx}'):
                         df.at[idx, 'doca'] = nova_doca
                         df.at[idx, 'destino'] = novo_destino
                         df.at[idx, 'status'] = 'Em Progresso'
@@ -311,8 +314,7 @@ def render_yard_panel(df: pd.DataFrame):
                         st.rerun()
                 
                 with col_btn2:
-                    if st.button("✅ Finalizar", key=f'finish_{idx}', type='primary',
-                               help="Encerrar operação"):
+                    if st.button("✅ Finalizar", key=f'finish_{idx}', type='primary'):
                         df.at[idx, 'status'] = 'Finalizado'
                         save_data(df)
                         st.rerun()
@@ -341,12 +343,12 @@ def render_yard_panel(df: pd.DataFrame):
                 doca = st.text_input(
                     "Doca Inicial",
                     key=f'doca_{idx}',
-                    placeholder="Nº da doca"
+                    placeholder="Nº doca"
                 )
                 destino = st.text_input(
                     "Destino Inicial",
                     key=f'dest_{idx}',
-                    placeholder="Local de carga"
+                    placeholder="Localização"
                 )
                 
                 if st.button("▶️ Iniciar Operação", key=f'start_{idx}'):
@@ -355,7 +357,6 @@ def render_yard_panel(df: pd.DataFrame):
                     df.at[idx, 'doca'] = doca
                     df.at[idx, 'destino'] = destino
                     save_data(df)
-                    st.session_state.last_call = datetime.now()
                     st.rerun()
 
 # ================ PAINEL MOTORISTA ================
@@ -372,11 +373,14 @@ def render_driver_panel(df: pd.DataFrame):
         return
 
     # Verificar novo chamado
-    ultima_operacao = operacoes.iloc[0]['chamado_em']
-    if st.session_state.last_call != ultima_operacao:
-        play_alert_sound()
-        st.session_state.last_call = ultima_operacao
+    current_call = operacoes.iloc[0]['chamado_em']
+    if st.session_state.last_call_time != current_call:
+        st.session_state.last_call_time = current_call
         st.session_state.sound_played = False
+    
+    if not st.session_state.sound_played:
+        play_alert_sound()
+        st.session_state.sound_played = True
 
     # Exibir operação atual
     operacao = operacoes.iloc[0]
@@ -410,12 +414,24 @@ def render_driver_panel(df: pd.DataFrame):
         {operacao['chamado_em'].strftime('%d/%m/%Y %H:%M')}
         """)
 
+# ================ CONTROLE DE ATUALIZAÇÃO ================
+def handle_auto_refresh():
+    """Gerencia a atualização automática com intervalo de 15 segundos"""
+    if st.session_state.auto_update and st.session_state.current_mode in ['Painel Pátio', 'Painel Motorista']:
+        now = datetime.now()
+        elapsed = (now - st.session_state.last_update).total_seconds()
+        
+        if elapsed >= 15:
+            st.session_state.last_update = now
+            st.rerun()
+
 # ================ EXECUÇÃO PRINCIPAL ================
 def main():
     setup_page()
     render_header()
     
     controls = render_controls()
+    st.session_state.current_mode = controls['modo']
     df = load_data()
     
     st.session_state.update({
@@ -430,8 +446,15 @@ def main():
     else:
         render_driver_panel(df)
 
-    if controls['auto_update'] and st.session_state.auto_update:
-        st.rerun()
+    handle_auto_refresh()
+    
+    # Exibir status de atualização
+    if st.session_state.auto_update and st.session_state.current_mode in ['Painel Pátio', 'Painel Motorista']:
+        st.markdown(f"""
+        <div class='auto-update-status'>
+            Última atualização: {datetime.now().strftime('%H:%M:%S')}
+        </div>
+        """, unsafe_allow_html=True)
 
 if __name__ == '__main__':
     main()
