@@ -267,65 +267,104 @@ def render_admin_panel(df: pd.DataFrame):
 
 # ================ PAINEL PÁTIO ================
 def render_yard_panel(df: pd.DataFrame):
-    """Interface do Painel do Pátio"""
-    st.subheader('Painel do Pátio')
+    """Interface do Painel do Pátio - Versão Simplificada"""
+    st.subheader("Controle de Operações - Pátio")
     aguardando = df[df['status'] == 'Aguardando']
 
     if aguardando.empty:
-        st.info('Nenhum motorista aguardando')
+        st.info('Nenhum motorista aguardando atendimento')
         return
 
     for idx, row in aguardando.iterrows():
-        with st.container():
-            st.markdown(f"### {row['motorista']}")
-            cols = st.columns([2, 1, 1])
-            cols[0].write(f"**Senha:** {row['senha']}")
-            cols[1].text_input('Doca', key=f'doca_{idx}', disabled=True)
-            cols[2].text_input('Destino', key=f'dest_{idx}', disabled=True)
+        with st.container(border=True):
+            # Cabeçalho do Card
+            cols_header = st.columns([3, 1, 1])
+            cols_header[0].subheader(row['motorista'])
+            cols_header[1].metric("Placa", row['placa'])
+            cols_header[2].metric("Senha", row['senha'])
             
-            if st.button('Chamar Motorista', key=f'btn_{idx}'):
-                df.at[idx, 'status'] = 'Chamado'
-                df.at[idx, 'chamado_em'] = datetime.now()
-                save_data(df)
-                st.success(f"Motorista {row['motorista']} chamado!")
-                play_alert_sound()
+            # Corpo do Card
+            with st.form(key=f'form_{idx}'):
+                cols_body = st.columns(2)
+                
+                # Coluna Esquerda - Informações
+                with cols_body[0]:
+                    st.markdown(f"**Transportadora:** {row['transportadora']}")
+                    st.markdown(f"**Cliente:** {row['cliente']}")
+                    st.markdown(f"**Vendedor:** {row['vendedor']}")
+                
+                # Coluna Direita - Controles
+                with cols_body[1]:
+                    doca = st.text_input(
+                        "Nº Doca",
+                        value=row['doca'],
+                        key=f'doca_{idx}',
+                        placeholder="Ex: 05",
+                        help="Número da doca designada",
+                        max_chars=3
+                    )
+                    
+                    destino = st.text_input(
+                        "Destino/Unidade",
+                        value=row['destino'],
+                        key=f'dest_{idx}',
+                        placeholder="Ex: Armazém B",
+                        help="Destino final da carga",
+                        max_chars=20
+                    )
+                    
+                    if st.form_submit_button("Confirmar Direcionamento", type='primary'):
+                        df.at[idx, 'status'] = 'Chamado'
+                        df.at[idx, 'chamado_em'] = datetime.now()
+                        df.at[idx, 'doca'] = doca
+                        df.at[idx, 'destino'] = destino
+                        save_data(df)
+                        st.rerun()
 
 # ================ PAINEL MOTORISTA ================
 def render_driver_panel(df: pd.DataFrame):
-    """Interface do Painel do Motorista"""
+    """Interface do Painel do Motorista - Versão Linear"""
+    st.subheader("Chamados em Andamento")
     chamados = df[df['status'] == 'Chamado'].sort_values('chamado_em', ascending=False)
     
     if chamados.empty:
-        st.info('Nenhum chamado ativo')
+        st.info('Nenhum chamado ativo no sistema')
         return
 
-    # Último chamado
+    # Último Chamado
     ultimo = chamados.iloc[0]
-    with st.container():
-        st.markdown('<div class="card-highlight">', unsafe_allow_html=True)
-        cols = st.columns([1, 2, 2, 2])
-        cols[0].markdown('## 🚨')
-        cols[1].markdown(f"### {ultimo['motorista']}")
-        cols[2].markdown(f"**Doca:** {ultimo['doca'] or '—'}")
-        cols[3].markdown(f"**Destino:** {ultimo['destino'] or '—'}")
+    with st.container(border=True):
+        cols = st.columns([2, 1, 1, 2])
         
-        info_cols = st.columns(3)
-        info_cols[0].markdown(f"**Cliente:** {ultimo['cliente']}")
-        info_cols[1].markdown(f"**Vendedor:** {ultimo['vendedor']}")
-        info_cols[2].markdown(f"**Chamado em:** {ultimo['chamado_em'].strftime('%d/%m %H:%M')}")
-        st.markdown('</div>', unsafe_allow_html=True)
+        # Coluna 1: Informações Básicas
+        cols[0].markdown(f"**Motorista:** {ultimo['motorista']}")
+        cols[0].markdown(f"**Placa:** {ultimo['placa']}")
+        cols[0].markdown(f"**Transportadora:** {ultimo['transportadora']}")
+        
+        # Coluna 2: Localização
+        cols[1].markdown("### Doca")
+        cols[1].markdown(f"`{ultimo['doca'] or '---'}`")
+        
+        # Coluna 3: Destino
+        cols[2].markdown("### Destino")
+        cols[2].markdown(f"`{ultimo['destino'] or '---'}`")
+        
+        # Coluna 4: Temporal
+        cols[3].markdown("### Horário")
+        cols[3].markdown(f"{ultimo['chamado_em'].strftime('%d/%m/%Y')}")
+        cols[3].markdown(f"**{ultimo['chamado_em'].strftime('%H:%M')}**")
 
     # Histórico
-    st.markdown('### 🕒 Histórico de Chamados')
+    st.divider()
+    st.markdown("### Registro de Chamadas Anteriores")
     for idx, row in chamados.iloc[1:].iterrows():
-        with st.container():
-            st.markdown('<div class="card-muted">', unsafe_allow_html=True)
-            cols = st.columns([3, 2, 1, 2])
-            cols[0].write(f"**{row['motorista']}**")
-            cols[1].write(f"Doca: {row['doca'] or '-'}")
-            cols[2].write(row['chamado_em'].strftime('%H:%M'))
-            cols[3].write(f"Cliente: {row['cliente']}")
-            st.markdown('</div>', unsafe_allow_html=True)
+        with st.container(border=True):
+            cols = st.columns([3, 1, 1, 2])
+            
+            cols[0].markdown(f"**{row['motorista']}**")
+            cols[1].markdown(f"Doca: `{row['doca']}`")
+            cols[2].markdown(f"Destino: `{row['destino']}`")
+            cols[3].markdown(f"Chamado: {row['chamado_em'].strftime('%d/%m %H:%M')}")
 
 # ================ EXECUÇÃO PRINCIPAL ================
 def main():

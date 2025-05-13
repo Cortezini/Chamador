@@ -206,3 +206,94 @@
   animation: loading-pulse 1.5s infinite;
   filter: grayscale(0.5);
 }
+
+/* Cards Destacados */
+.card-highlight {
+    padding: 1.5rem;
+    border-radius: 10px;
+    background: #ffffff;
+    border-left: 5px solid var(--primary);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+    margin-bottom: 1.5rem;
+}
+
+/* Cards do Histórico */
+.card-muted {
+    padding: 1rem;
+    border-radius: 8px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    margin-bottom: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.card-muted:hover {
+    transform: translateX(5px);
+    border-color: var(--primary);
+}
+
+/* Layout de Colunas */
+.stColumn > div {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+}
+
+/* Campos de Input */
+.stTextInput input {
+    border-radius: 6px !important;
+    border: 1px solid #ced4da !important;
+    padding: 0.5rem 0.75rem !important;
+}
+
+/* Destaques Temporais */
+.time-badge {
+    background: var(--primary);
+    color: white !important;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.9rem;
+}
+
+/* Layout Básico */
+.stContainer {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Cards */
+[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
+    border-radius: 8px;
+    border: 1px solid #e0e0e0 !important;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+}
+
+/* Títulos */
+h3 {
+    color: #2c3e50 !important;
+    margin-bottom: 0.5rem !important;
+}
+
+/* Inputs Concentrados */
+.stTextInput {
+    margin-bottom: 1rem;
+}
+
+.stTextInput input {
+    width: 100% !important;
+    min-width: 150px;
+}
+
+/* Espaçamento entre Colunas */
+.stColumn {
+    padding: 0 0.5rem;
+}
+
+/* Destaque Temporal */
+.time-display {
+    font-size: 1.25rem;
+    color: #2c3e50;
+    font-weight: 600;
+}
