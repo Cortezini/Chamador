@@ -7,7 +7,7 @@ import os
 import random
 
 # ----- Configurações -----
-st.set_page_config(page_title='Sistema de Chamadas', layout='wide', page_icon='🚛')  # DEVE SER O PRIMEIRO COMANDO
+st.set_page_config(page_title='Painel BDM', layout='wide', page_icon='assets/bdm.ico')  # DEVE SER O PRIMEIRO COMANDO
 
 # Inicialização do session_state
 if "som_tocado" not in st.session_state:
