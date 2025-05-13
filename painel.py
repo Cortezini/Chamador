@@ -59,6 +59,16 @@ DATA_CSV = 'chamados.csv'
 if not os.path.exists('assets'):
     os.makedirs('assets')
 
+# ----- Funções de áudio -----
+def gerar_som():
+    """Gera o som de alerta e salva como som_alerta.wav no diretório assets."""
+    if not os.path.exists('assets'):
+        os.makedirs('assets')  # Cria o diretório assets, se não existir
+    t = np.linspace(0, DURATION, int(SAMPLE_RATE * DURATION), False)
+    wave = 0.5 * np.sin(2 * np.pi * FREQUENCY * t)
+    audio = np.int16(wave * 32767)
+    write(ALERT_PATH, SAMPLE_RATE, audio)  # Salva o som gerado como som_alerta.wav
+
 # Verifica se o arquivo de som existe, senão o gera automaticamente
 if not os.path.exists(ALERT_PATH):
     print(f"O arquivo {ALERT_PATH} não foi encontrado. Gerando som...")
