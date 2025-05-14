@@ -74,6 +74,31 @@ ESTADO_INICIAL = {
     'feedback_patio': None
 }
 
+USUARIOS = {
+    "admin":    ("senha123", "administrador"),
+    "operador": ("op@2025",    "patio"),
+    "faturamento":  ("fat@2025",    "faturamento"),
+}
+
+# quem pode ver o quê
+PERMISSOES = {
+    'administrador': [
+        'Administrativo',
+        'Controle Pátio',
+        'Informações Motoristas',
+        'Relatórios'
+    ],
+    'patio': [
+        'Controle Pátio',
+        'Informações Motoristas'
+    ],
+    'faturamento': [
+        'informações Motoristas',
+        'controle Pátio'
+    ]
+}
+
+
 def inicializar_estado_aplicacao():
     """Configura valores padrão no session_state"""
     for chave, valor in ESTADO_INICIAL.items():
@@ -157,7 +182,41 @@ class GerenciadorDados:
 # ==================================================
 
 class ComponentesInterface:
-    """Classe para componentes reutilizáveis da interface"""
+
+    @staticmethod
+    def criar_painel_controle():
+        """Renderiza a barra lateral de controles, filtrando por perfil."""
+        with st.sidebar:
+            st.title('Configurações')
+
+            # pega o papel do usuário (setado no login)
+            papel = st.session_state.get('user_role', None)
+            # busca as páginas permitidas; se papel inválido, lista vazia
+            opcoes = PERMISSOES.get(papel, [])
+
+            # se não tiver opção, avisa e sai
+            if not opcoes:
+                st.error("Você não tem permissão para acessar este sistema.")
+                st.stop()
+
+            # selectbox só com as opções permitidas
+            modo = st.selectbox('Modo de Operação', opcoes)
+
+            audio = st.checkbox(
+                'Ativar Notificações Sonoras',
+                st.session_state.audio_habilitado
+            )
+            auto = st.checkbox(
+                'Atualização Automática (15s)',
+                st.session_state.atualizacao_automatica
+            )
+
+        return {
+            'modo_operacao': modo,
+            'audio_ativo': audio,
+            'atualizacao_automatica': auto
+        }
+    
     
     @staticmethod
     def exibir_cabecalho():
@@ -173,22 +232,10 @@ class ComponentesInterface:
                 </div>
             ''', unsafe_allow_html=True)
         except FileNotFoundError:
-            st.markdown(f'<div class="cabecalho">{CONFIGURACOES["interface"]["titulo_pagina"]}</div>', 
-                        unsafe_allow_html=True)
-
-    @staticmethod
-    def criar_painel_controle():
-        """Renderiza a barra lateral de controles"""
-        with st.sidebar:
-            st.title('Configurações')
-            return {
-                'modo_operacao': st.selectbox('Modo de Operação', 
-                    ['Administrativo', 'Controle Pátio', 'Informações Motoristas', 'Relatórios']),
-                'audio_ativo': st.checkbox('Ativar Notificações Sonoras', 
-                    st.session_state.audio_habilitado),
-                'atualizacao_automatica': st.checkbox('Atualização Automática (15s)', 
-                    st.session_state.atualizacao_automatica)
-            }
+            st.markdown(
+                f"<div class='cabecalho'>{CONFIGURACOES['interface']['titulo_pagina']}</div>",
+                unsafe_allow_html=True
+            )
 
     @staticmethod
     def exibir_notificacao():
@@ -526,9 +573,6 @@ class ModuloPatioOperacional:
         st.session_state.feedback_patio = ('sucesso', "↩️ Operação reaberta")
         st.rerun()
 
-
-
-
 class ModuloMotoristas:
     """Módulo para exibição de informações aos motoristas"""
     
@@ -744,30 +788,47 @@ class ModuloRelatorios:
 # CONTROLE PRINCIPAL
 # ==================================================
 
+def login():
+
+    st.sidebar.title("🔒 Login")
+    username = st.sidebar.text_input("Usuário")
+    password = st.sidebar.text_input("Senha", type="password")
+    if st.sidebar.button("Entrar"):
+        # validação
+        user = USUARIOS.get(username)
+        if user and user[0] == password:
+            st.session_state.user      = username
+            st.session_state.user_role = user[1]
+            st.session_state.logged_in = True
+        else:
+            st.sidebar.error("Usuário ou senha inválidos")
+
 def main():
-    """Função principal da aplicação"""
     inicializar_estado_aplicacao()
+
+    # se não logado, exibe login e retorna
+    if not st.session_state.get('logged_in', False):
+        login()
+        return
+
     configurar_pagina()
     ComponentesInterface.exibir_cabecalho()
-    
+
     controles = ComponentesInterface.criar_painel_controle()
     st.session_state.modo_atual = controles['modo_operacao']
-    dados = GerenciadorDados.carregar_registros()
-    
-    st.session_state.update({
-        'audio_habilitado': controles['audio_ativo'],
-        'atualizacao_automatica': controles['atualizacao_automatica']
-    })
 
+    # 4) carrega dados e chama o módulo
+    dados = GerenciadorDados.carregar_registros()
     modulos = {
         'Administrativo': ModuloAdministrativo.exibir_painel,
         'Controle Pátio': ModuloPatioOperacional.exibir_painel,
         'Informações Motoristas': ModuloMotoristas.exibir_painel,
         'Relatórios': ModuloRelatorios.exibir_painel
     }
-    modulos[controles['modo_operacao']](dados)
+    modulos[st.session_state.modo_atual](dados)
 
     _gerenciar_atualizacao_automatica()
+
 
 def _gerenciar_atualizacao_automatica():
     """Controla a atualização automática do sistema"""

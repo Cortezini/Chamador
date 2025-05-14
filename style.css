@@ -184,6 +184,54 @@
   box-shadow: var(--box-shadow);
 }
 
+/* =========== TELA DE LOGIN =========== */
+.login-box {
+  background: white;
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  box-shadow: var(--box-shadow);
+  margin: 2rem auto;
+  max-width: 300px;
+  text-align: center;
+}
+
+.login-box h2 {
+  margin-bottom: 1rem;
+  color: var(--primary);
+  font-size: 1.5rem;
+}
+
+.login-input {
+  width: 100%;
+  padding: 0.5rem;
+  margin: 0.5rem 0 1rem;
+  border: 1px solid #ccc;
+  border-radius: var(--radius);
+  font-size: 1rem;
+}
+
+.login-btn {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.login-btn:hover {
+  box-shadow: var(--box-shadow-hover);
+}
+
+/* Força inputs e botões da sidebar a usarem nosso estilo */
+[data-testid="stSidebar"] .login-box {
+  margin-top: 2rem;
+}
+[data-testid="stSidebar"] .login-input {
+  font-family: inherit;
+}
 
 
 /* ================ ESTADOS ESPECÍFICOS ================ */
