@@ -21,6 +21,48 @@ import base64
 from datetime import datetime, timedelta
 from pathlib import Path
 from scipy.io.wavfile import write
+from sqlalchemy import create_engine, MetaData, Table, Column, String, DateTime
+from sqlalchemy.exc import NoSuchTableError
+
+# 1) Cria o engine SQLite
+SQLITE_FILE = 'registros_chamados.db'
+ENGINE = create_engine(
+    f'sqlite:///{SQLITE_FILE}',
+    connect_args={"check_same_thread": False}
+)
+
+# 2) Metadata sem bind
+META = MetaData()
+
+def criar_tabela_if_not_exists():
+    """ Garante que a tabela 'chamados' exista no SQLite """
+    try:
+        # tenta carregar a tabela existente
+        Table('chamados', META, autoload_with=ENGINE)
+    except NoSuchTableError:
+        # se não existe, definir esquema e criar
+        Table(
+            'chamados', META,
+            Column('motorista', String),
+            Column('contato', String),
+            Column('transportadora', String),
+            Column('senha', String),
+            Column('placa', String),
+            Column('cliente', String),
+            Column('vendedor', String),
+            Column('destino', String),
+            Column('doca', String),
+            Column('status', String),
+            Column('chamado_em', DateTime),
+            Column('finalizado_em', DateTime),
+        )
+        # efetiva no BD
+        META.create_all(ENGINE)
+
+# Chame isto uma vez, assim que o app iniciar:
+criar_tabela_if_not_exists()
+
+
 
 # ==================================================
 # CONFIGURAÇÕES GLOBAIS
@@ -147,6 +189,34 @@ def gerar_audio_alerta():
 # ==================================================
 # GERENCIAMENTO DE DADOS
 # ==================================================
+
+
+class GerenciadorDados:
+    @staticmethod
+    def carregar_registros():
+        try:
+            df = pd.read_sql_table(
+                'chamados',
+                con=ENGINE,
+                parse_dates=['chamado_em', 'finalizado_em']
+            )
+            return df.fillna('')
+        except Exception as e:
+            st.error(f"Falha ao carregar dados do SQLite: {e}")
+            return pd.DataFrame(columns=CONFIGURACOES['dados']['colunas'])
+
+    @staticmethod
+    def salvar_registros(dataframe):
+        try:
+            dataframe.to_sql(
+                'chamados',
+                con=ENGINE,
+                index=False,
+                if_exists='replace'
+            )
+        except Exception as e:
+            st.error(f"Erro ao salvar dados no SQLite: {e}")
+
 
 class GerenciadorDados:
     """Classe para operações de leitura/gravação de dados"""
@@ -569,7 +639,7 @@ class ModuloPatioOperacional:
         df = dataframe.copy()
         df.at[indice, 'status']       = 'Em Progresso'
         df.at[indice, 'finalizado_em'] = pd.NaT
-        GerenciadorDados.salvar_registros(df)
+        GerenciadorDados.salvar_registros(dataframe)
         st.session_state.feedback_patio = ('sucesso', "↩️ Operação reaberta")
         st.rerun()
 
