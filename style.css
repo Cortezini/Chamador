@@ -49,6 +49,19 @@
   background: linear-gradient(145deg, rgba(78,205,196,0.03) 0%, rgba(255,255,255,1) 100%);
 }
 
+/* NOVO CSS PARA ALINHAMENTO VERTICAL */
+.info-vertical strong {
+  display: block;
+  margin-bottom: 0.25rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.info-vertical p {
+  margin: 0 0 1rem 0;
+  line-height: 1.4;
+}
+
 /* ================ ELEMENTOS DE DESTAQUE ================ */
 .doca-badge {
   display: inline-flex;
@@ -130,6 +143,40 @@
   box-shadow: var(--shadow-md);
 }
 
+/* ATUALIZE O CSS */
+/* ESTILO UNIFICADO PARA PLACA E SENHA */
+.info-destaque-box {
+  text-align: center;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  margin: 0.5rem 0;
+}
+
+.placa-box {
+  background: var(--accent);
+  color: white;
+  border: 2px solid var(--accent-dark);
+}
+
+.senha-box {
+  background: var(--primary);
+  color: white;
+  border: 2px solid var(--primary-dark);
+}
+
+.info-label {
+  display: block;
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-bottom: 0.25rem;
+}
+
+.info-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
 .info-destaque {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -206,63 +253,3 @@
   padding: 0.75rem 1.5rem !important;
 }
 
-/* ================ LAYOUT VERTICAL DO PÁTIO ================ */
-.patio-vertical {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.operacao-card {
-  width: 100%;
-  margin-bottom: 1.5rem;
-  animation: slideIn 0.5s ease-out;
-}
-
-/* Remove o grid anterior */
-.patio-grid {
-  display: block !important;
-}
-
-/* Ajusta o conteúdo interno para layout vertical */
-.operacao-content {
-  display: grid;
-  grid-template-columns: 1fr 200px;
-  gap: 1.5rem;
-  align-items: start;
-}
-
-@media (max-width: 768px) {
-  .operacao-content {
-    grid-template-columns: 1fr;
-  }
-  
-  .controles-operacao {
-    grid-row: 1;
-  }
-}
-
-/* Ajusta os elementos de informação */
-.info-veiculo {
-  display: flex;
-  gap: 1rem;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-
-.placa-container {
-  font-size: 1.25rem;
-  padding: 0.5rem 1rem;
-}
-
-/* Melhora a hierarquia visual */
-.detalhe-principal {
-  font-size: 1.1rem;
-  color: var(--text-primary);
-  margin-bottom: 0.25rem;
-}
-
-.detalhe-secundario {
-  color: var(--text-muted);
-  font-size: 0.9rem;
-}

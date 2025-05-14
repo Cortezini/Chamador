@@ -442,30 +442,7 @@ class ModuloPatioOperacional:
     def _exibir_operacoes_ativas(cls, dataframe):
         """Exibe operações em andamento com layout otimizado"""
         operacoes = dataframe[dataframe['status'].isin(['Chamado', 'Em Progresso'])]
-        with st.container():
-            st.markdown('<div class="patio-vertical">', unsafe_allow_html=True)
-            
-            for indice, registro in operacoes.iterrows():
-                st.markdown(f"""
-                    <div class="operacao-card" data-status="{registro['status']}">
-                        <div class="operacao-content">
-                            <div>
-                                <div class="info-veiculo">
-                                    <span class="placa-container">{registro['placa']}</span>
-                                    <span class="doca-badge">{registro['doca']}</span>
-                                </div>
-                                <div class="detalhe-principal">{registro['motorista']}</div>
-                                <div class="detalhe-secundario">{registro['transportadora']}</div>
-                                <div class="destino-badge">{registro['destino']}</div>
-                            </div>
-                            <div class="controles-operacao">
-                                <!-- Seus controles aqui -->
-                            </div>
-                        </div>
-                    </div>
-                """, unsafe_allow_html=True)
-            
-            st.markdown('</div>', unsafe_allow_html=True)
+        
         if operacoes.empty:
             st.info("🌟 Nenhuma operação ativa no momento")
             return
@@ -476,13 +453,31 @@ class ModuloPatioOperacional:
 
                 # Coluna 0: Informações principais
                 cols[0].markdown(
-                    f"**Destino:** {registro.get('destino','')}\n"
-                    f"**Motorista:** {registro.get('motorista','')}\n"
-                    f"**Transportadora:** {registro.get('transportadora','')}"
+                    f"<div class='info-vertical'>"
+                    f"<strong>Destino:</strong> {registro.get('destino','')}<br>"
+                    f"<strong>Motorista:</strong> {registro.get('motorista','')}<br>"
+                    f"<strong>Transportadora:</strong> {registro.get('transportadora','')}"
+                    f"</div>", 
+                        unsafe_allow_html=True
                 )
-                # Coluna 1-2: Dados do veículo
-                cols[1].metric("🚘 Placa", registro.get('placa',''))
-                cols[2].metric("🔑 Senha", registro.get('senha',''))
+                
+                # Coluna da Placa
+                cols[1].markdown(
+                    f"<div class='info-destaque-box placa-box'>"
+                    f"<span class='info-label'>PLACA</span>"
+                    f"<div class='info-value'>{registro.get('placa','').upper().replace('-', '')}</div>"
+                    f"</div>", 
+                        unsafe_allow_html=True
+                )
+
+                # Coluna da Senha
+                cols[2].markdown(
+                    f"<div class='info-destaque-box senha-box'>"
+                    f"<span class='info-label'>SENHA</span>"
+                    f"<div class='info-value'>{registro.get('senha','')}</div>"
+                    f"</div>", 
+                        unsafe_allow_html=True
+                )
 
                 # Coluna 3-4: Controles de edição
                 nova_doca = cols[3].text_input(
