@@ -701,36 +701,29 @@ class ModuloMotoristas:
 
     @staticmethod
     def _exibir_operacao_atual(operacao):
-        with st.container():
-            st.markdown(f"""
-            <div class="info-panel">
-                <div class="info-highlight">
-                    <div class="info-item">
-                        <span class="info-item-label">DOCA</span>
-                        <span class="info-item-value">{operacao['doca']}</span>
-                    </div>
-                    <div class="info-item">
-                        <span class="info-item-label">DESTINO</span>
-                        <span class="info-item-value">{operacao['destino']}</span>
-                    </div>
-                </div>
-                
-                <div class="info-item">
-                    <span class="info-item-label">Motorista</span>
-                    <span class="info-item-value">{operacao['motorista']}</span>
-                </div>
-                
-                <div class="info-item">
-                    <span class="info-item-label">Transportadora</span>
-                    <span class="info-item-value">{operacao['transportadora']}</span>
-                </div>
-                
-                <div class="info-item">
-                    <span class="info-item-label">Placa</span>
-                    <span class="info-item-value">{operacao['placa']}</span>
-                </div>
-            </div>
-        """, unsafe_allow_html=True)
+        """Exibe detalhes da operação atual"""
+        with st.container(border=True):
+            colunas = st.columns([2, 1, 1, 2])
+            
+            colunas[0].markdown(
+                f"### {operacao.get('motorista', 'N/A')}  \n"
+                f"**Placa:** {operacao.get('placa', 'N/A')}  \n"
+                f"**Transportadora:** {operacao.get('transportadora', 'N/A')}"
+            )
+            
+            colunas[1].markdown(
+                f"<div class='doca-font'>DOCA<br>{operacao['doca'] or '---'}</div>", 
+                unsafe_allow_html=True
+            )
+            
+            colunas[2].markdown(
+                f"<div class='destino-font'>DESTINO<br>{operacao['destino'] or '---'}</div>", 
+                unsafe_allow_html=True
+            )
+            
+            colunas[3].markdown(
+                f"**Início:**  \n{operacao['chamado_em'].strftime('%d/%m/%Y %H:%M')}"
+            )
 
 class ModuloRelatorios:
     """Módulo para geração de relatórios analíticos"""

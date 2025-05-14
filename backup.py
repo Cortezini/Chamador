@@ -18,9 +18,52 @@ import pandas as pd
 import numpy as np
 import re
 import base64
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from scipy.io.wavfile import write
+from sqlalchemy import create_engine, MetaData, Table, Column, String, DateTime
+from sqlalchemy.exc import NoSuchTableError
+
+# 1) Cria o engine SQLite
+SQLITE_FILE = 'registros_chamados.db'
+ENGINE = create_engine(
+    f'sqlite:///{SQLITE_FILE}',
+    connect_args={"check_same_thread": False}
+)
+
+# 2) Metadata sem bind
+META = MetaData()
+
+def criar_tabela_if_not_exists():
+    """ Garante que a tabela 'chamados' exista no SQLite """
+    try:
+        # tenta carregar a tabela existente
+        Table('chamados', META, autoload_with=ENGINE)
+    except NoSuchTableError:
+        # se não existe, definir esquema e criar
+        Table(
+            'chamados', META,
+            Column('motorista', String),
+            Column('contato', String),
+            Column('transportadora', String),
+            Column('senha', String),
+            Column('placa', String),
+            Column('cliente', String),
+            Column('vendedor', String),
+            Column('destino', String),
+            Column('doca', String),
+            Column('status', String),
+            Column('chamado_em', DateTime),
+            Column('finalizado_em', DateTime),
+        )
+        # efetiva no BD
+        META.create_all(ENGINE)
+
+# Chame isto uma vez, assim que o app iniciar:
+criar_tabela_if_not_exists()
+
+
 
 # ==================================================
 # CONFIGURAÇÕES GLOBAIS
@@ -39,7 +82,7 @@ CONFIGURACOES = {
         }
     },
     'dados': {
-        'arquivo_csv': 'registros_chamados.csv',
+        # 'arquivo_csv': 'registros_chamados.csv',
         'colunas': [
             'motorista', 'contato', 'transportadora', 'senha', 'placa',
             'cliente', 'vendedor', 'destino', 'doca', 'status', 
@@ -72,13 +115,58 @@ ESTADO_INICIAL = {
     'atualizacao_automatica': False,
     'modo_atual': None,
     'feedback_patio': None
+    
 }
 
+for key, value in ESTADO_INICIAL.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
+
+USUARIOS = {
+    "PAULO":("Paulo1405", "administrador"),
+    "MATHEUS":("Matheus1405", "administrador"),
+    "admin":("senha123", "administrador"),
+    "operador":("op@2025", "patio"),
+    "faturamento":("fat@2025", "faturamento"),
+}
+
+# quem pode ver o quê
+PERMISSOES = {
+    'administrador': [
+        'Administrativo',
+        'Controle Pátio',
+        'Informações Motoristas',
+        'Relatórios'
+    ],
+    'patio': [
+        'Controle Pátio',
+        'Informações Motoristas'
+    ],
+    'faturamento': [
+        'informações Motoristas',
+        'controle Pátio'
+    ]
+}
+
+
 def inicializar_estado_aplicacao():
-    """Configura valores padrão no session_state"""
-    for chave, valor in ESTADO_INICIAL.items():
-        if chave not in st.session_state:
-            st.session_state[chave] = valor
+    defaults = {
+        'logged_in': False,
+        'user': None,
+        'user_role': None,
+        'login_time': 0,
+        'ultima_atualizacao': datetime.now(),
+        'ultimo_chamado': None,
+        'alerta_reproduzido': False,
+        'audio_habilitado': True,
+        'atualizacao_automatica': False,
+        'modo_atual': 'Controle Pátio',
+        'feedback_patio': None
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
 # ==================================================
 # UTILITÁRIOS DO SISTEMA
@@ -123,41 +211,73 @@ def gerar_audio_alerta():
 # GERENCIAMENTO DE DADOS
 # ==================================================
 
+
 class GerenciadorDados:
-    """Classe para operações de leitura/gravação de dados"""
-    
     @staticmethod
     def carregar_registros():
-        """Carrega dados dos registros de operações"""
         try:
-            df = pd.read_csv(
-                CONFIGURACOES['dados']['arquivo_csv'],
-                parse_dates=['chamado_em', 'finalizado_em'],
-                dayfirst=True,
-                dtype={col: str for col in CONFIGURACOES['dados']['colunas'] 
-                       if col not in ['chamado_em', 'finalizado_em']}
+            df = pd.read_sql_table(
+                'chamados',
+                con=ENGINE,
+                parse_dates=['chamado_em', 'finalizado_em']
             )
             return df.fillna('')
-        except FileNotFoundError:
-            return pd.DataFrame(columns=CONFIGURACOES['dados']['colunas'])
-        except Exception as erro:
-            st.error(f"Falha ao carregar dados: {str(erro)}")
+        except Exception as e:
+            st.error(f"Falha ao carregar dados do SQLite: {e}")
             return pd.DataFrame(columns=CONFIGURACOES['dados']['colunas'])
 
     @staticmethod
     def salvar_registros(dataframe):
-        """Persiste os dados em arquivo CSV"""
         try:
-            dataframe.to_csv(CONFIGURACOES['dados']['arquivo_csv'], index=False)
-        except Exception as erro:
-            st.error(f"Erro ao salvar dados: {str(erro)}")
+            dataframe.to_sql(
+                'chamados',
+                con=ENGINE,
+                index=False,
+                if_exists='replace'
+            )
+        except Exception as e:
+            st.error(f"Erro ao salvar dados no SQLite: {e}")
 
 # ==================================================
 # COMPONENTES DE INTERFACE
 # ==================================================
 
 class ComponentesInterface:
-    """Classe para componentes reutilizáveis da interface"""
+
+    @staticmethod
+    def criar_painel_controle():
+        """Renderiza a barra lateral de controles, filtrando por perfil."""
+        with st.sidebar:
+            st.title('Configurações')
+
+            # pega o papel do usuário (setado no login)
+            papel = st.session_state.get('user_role', None)
+            # busca as páginas permitidas; se papel inválido, lista vazia
+            opcoes = PERMISSOES.get(papel, [])
+
+            # se não tiver opção, avisa e sai
+            if not opcoes:
+                st.error("Você não tem permissão para acessar este sistema.")
+                st.stop()
+
+            # selectbox só com as opções permitidas
+            modo = st.selectbox('Modo de Operação', opcoes)
+
+            audio = st.checkbox(
+                'Ativar Notificações Sonoras',
+                st.session_state.audio_habilitado
+            )
+            auto = st.checkbox(
+                'Atualização Automática (15s)',
+                st.session_state.atualizacao_automatica
+            )
+
+        return {
+            'modo_operacao': modo,
+            'audio_ativo': audio,
+            'atualizacao_automatica': auto
+        }
+    
     
     @staticmethod
     def exibir_cabecalho():
@@ -173,22 +293,10 @@ class ComponentesInterface:
                 </div>
             ''', unsafe_allow_html=True)
         except FileNotFoundError:
-            st.markdown(f'<div class="cabecalho">{CONFIGURACOES["interface"]["titulo_pagina"]}</div>', 
-                        unsafe_allow_html=True)
-
-    @staticmethod
-    def criar_painel_controle():
-        """Renderiza a barra lateral de controles"""
-        with st.sidebar:
-            st.title('Configurações')
-            return {
-                'modo_operacao': st.selectbox('Modo de Operação', 
-                    ['Administrativo', 'Controle Pátio', 'Informações Motoristas', 'Relatórios']),
-                'audio_ativo': st.checkbox('Ativar Notificações Sonoras', 
-                    st.session_state.audio_habilitado),
-                'atualizacao_automatica': st.checkbox('Atualização Automática (15s)', 
-                    st.session_state.atualizacao_automatica)
-            }
+            st.markdown(
+                f"<div class='cabecalho'>{CONFIGURACOES['interface']['titulo_pagina']}</div>",
+                unsafe_allow_html=True
+            )
 
     @staticmethod
     def exibir_notificacao():
@@ -240,14 +348,15 @@ class ModuloAdministrativo:
                 dados = {
                     'motorista': st.text_input('Nome Completo*', placeholder="Ex: João Silva"),
                     'contato': st.text_input('Contato*', max_chars=15, placeholder="(XX) 99999-9999"),
-                    'placa': st.text_input('Placa*', max_chars=7, placeholder="AAA0A00")
+                    'placa': st.text_input('Placa*', max_chars=7, placeholder="AAA0A00"),
+                    'destino': st.text_input('Destino', placeholder="Destino da carga")
                 }
             
             with col2:
                 dados.update({
                     'senha': st.text_input('Senha', max_chars=3, placeholder="123"),
                     'transportadora': st.text_input('Transportadora*', placeholder="Nome da empresa"),
-                    'cliente': st.text_input('Cliente', placeholder="Destinatário")
+                    'cliente': st.text_input('Cliente', placeholder="Destinatário"),
                 })
             
             dados['vendedor'] = st.text_input('Vendedor Responsável')
@@ -263,10 +372,23 @@ class ModuloAdministrativo:
         validacoes = CONFIGURACOES['validacoes']
         erros = []
         
+        # Processar telefone
+        raw_contato = dados['contato']
+        digits = re.sub(r'\D', '', raw_contato)
+        if len(digits) not in [10, 11]:
+            erros.append("Número de telefone inválido. Deve ter 10 ou 11 dígitos.")
+        else:
+            # Formatar o telefone
+            if len(digits) == 11:
+                formatted_contato = f'({digits[:2]}) {digits[2:7]}-{digits[7:]}'
+            else:
+                formatted_contato = f'({digits[:2]}) {digits[2:6]}-{digits[6:]}'
+            dados['contato'] = formatted_contato
+            if not re.match(validacoes['telefone'], dados['contato']):
+                erros.append("Formato de telefone inválido após formatação.")
+        
         if not re.match(validacoes['nome'], dados['motorista'], re.IGNORECASE):
             erros.append("Nome inválido (mín. 5 caracteres alfabéticos)")
-        if not re.match(validacoes['telefone'], dados['contato']):
-            erros.append("Formato de telefone inválido")
         if not re.fullmatch(validacoes['placa'], dados['placa'].upper().replace(' ', '')):
             erros.append("Placa inválida")
         if dados['senha'] and not re.fullmatch(validacoes['senha'], dados['senha']):
@@ -281,7 +403,6 @@ class ModuloAdministrativo:
         """Adiciona novo registro ao DataFrame"""
         novo_registro = {
             **dados,
-            'destino': '',
             'doca': '',
             'status': 'Aguardando',
             'chamado_em': pd.NaT,
@@ -297,7 +418,7 @@ class ModuloAdministrativo:
     def _tabela_edicao_registros(dataframe):
         """Tabela editável para gestão de registros"""
         st.divider()
-        colunas = ['motorista', 'placa', 'transportadora', 'status']
+        colunas = ['motorista', 'placa', 'transportadora', 'status' , 'destino']
         df_editado = st.data_editor(
             dataframe[colunas],
             use_container_width=True,
@@ -315,124 +436,222 @@ class ModuloAdministrativo:
 
 class ModuloPatioOperacional:
     """Módulo para controle de operações no pátio"""
-    
+
     @classmethod
     def exibir_painel(cls, dataframe):
         """Interface principal do módulo de pátio"""
         st.subheader("Controle Operacional do Pátio")
         ComponentesInterface.exibir_notificacao()
-        
-        operacoes_ativas = dataframe[dataframe['status'].isin(['Chamado', 'Em Progresso'])]
-        if not operacoes_ativas.empty:
-            cls._exibir_operacoes_ativas(operacoes_ativas, dataframe)
-        
-        cls._exibir_chamados_aguardando(dataframe)
+
+        # Recarrega do CSV para ter sempre dados atualizados
+        dataframe = GerenciadorDados.carregar_registros()
+
+        tab1, tab2, tab3 = st.tabs([
+            "🏗️ Operações Ativas",
+            "📭 Chamados Aguardando",
+            "🕰️ Histórico"
+        ])
+
+        with tab1:
+            cls._exibir_operacoes_ativas(dataframe)
+        with tab2:
+            cls._exibir_chamados_aguardando(dataframe)
+        with tab3:
+            cls._exibir_operacoes_finalizadas(dataframe)
 
     @classmethod
-    def _exibir_operacoes_ativas(cls, operacoes, dataframe):
-        """Exibe operações em andamento"""
-        st.markdown("### Operações em Andamento")
+    def _exibir_operacoes_ativas(cls, dataframe):
+        """Exibe operações em andamento com layout otimizado"""
+        operacoes = dataframe[dataframe['status'].isin(['Chamado', 'Em Progresso'])]
+        
+        if operacoes.empty:
+            st.info("🌟 Nenhuma operação ativa no momento")
+            return
+
         for indice, registro in operacoes.iterrows():
-            with st.container(border=True):
-                colunas = st.columns([3, 1, 1, 2, 2])
-                
-                colunas[0].markdown(
-                    f"**Motorista:** {registro['motorista']}  \n"
-                    f"**Transportadora:** {registro['transportadora']}  \n"
-                    f"**Placa:** `{registro['placa']}`"
-                )
-                
-                colunas[1].markdown(f"**Doca:**  \n`{registro['doca'] or '---'}`")
-                colunas[2].markdown(f"**Destino:**  \n`{registro['destino'] or '---'}`")
-                
-                nova_doca = colunas[3].text_input(
-                    "Nova Doca", 
-                    value=registro['doca'], 
-                    key=f'nova_doca_{indice}'
-                )
-                
-                novo_destino = colunas[4].text_input(
-                    "Novo Destino", 
-                    value=registro['destino'], 
-                    key=f'novo_destino_{indice}'
-                )
-                
-                col_botoes = st.columns(2)
-                if col_botoes[0].button("🔄 Atualizar", key=f'atualizar_{indice}'):
-                    cls._atualizar_operacao(dataframe, indice, nova_doca, novo_destino)
-                
-                if col_botoes[1].button("✅ Finalizar", key=f'finalizar_{indice}', type='primary'):
-                    cls._finalizar_operacao(dataframe, indice)
+            with st.container():
+                cols = st.columns([3, 1, 1, 2, 2, 1.5])
 
-    @classmethod
-    def _atualizar_operacao(cls, dataframe, indice, doca, destino):
-        """Atualiza informações da operação"""
-        try:
-            dataframe.at[indice, 'doca'] = doca
-            dataframe.at[indice, 'destino'] = destino
-            dataframe.at[indice, 'status'] = 'Em Progresso'
-            GerenciadorDados.salvar_registros(dataframe)
-            st.session_state.feedback_patio = ('sucesso', f'Doca {doca} atualizada!')
-            st.rerun()
-        except Exception as erro:
-            st.session_state.feedback_patio = ('erro', f'Falha na atualização: {str(erro)}')
-            st.rerun()
+                # Coluna 0: Informações principais
+                cols[0].markdown(
+                    f"<div class='info-vertical'>"
+                    f"<strong>Destino:</strong> {registro.get('destino','')}<br>"
+                    f"<strong>Motorista:</strong> {registro.get('motorista','')}<br>"
+                    f"<strong>Transportadora:</strong> {registro.get('transportadora','')}"
+                    f"</div>", 
+                        unsafe_allow_html=True
+                )
 
-    @classmethod
-    def _finalizar_operacao(cls, dataframe, indice):
-        """Finaliza uma operação em andamento"""
-        try:
-            dataframe.at[indice, 'status'] = 'Finalizado'
-            dataframe.at[indice, 'finalizado_em'] = datetime.now()
-            GerenciadorDados.salvar_registros(dataframe)
-            st.session_state.feedback_patio = ('sucesso', 'Operação finalizada com sucesso!')
-            st.rerun()
-        except Exception as erro:
-            st.session_state.feedback_patio = ('erro', f'Erro ao finalizar: {str(erro)}')
-            st.rerun()
+                # Coluna da Placa
+                cols[1].markdown(
+                    f"<div class='info-destaque-box placa-box'>"
+                    f"<span class='info-label'>PLACA</span>"
+                    f"<div class='info-value'>{registro.get('placa','').upper().replace('-', '')}</div>"
+                    f"</div>", 
+                        unsafe_allow_html=True
+                )
+
+                # Coluna da Senha
+                cols[2].markdown(
+                    f"<div class='info-destaque-box senha-box'>"
+                    f"<span class='info-label'>SENHA</span>"
+                    f"<div class='info-value'>{registro.get('senha','')}</div>"
+                    f"</div>", 
+                        unsafe_allow_html=True
+                )
+
+                # Coluna 3-4: Controles de edição
+                nova_doca = cols[3].text_input(
+                    "📍 Nova Doca",
+                    value=registro.get('doca',''),
+                    key=f'doca_edit_{indice}'
+                )
+                novo_destino = cols[4].text_input(
+                    "🎯 Ajustar Destino",
+                    value=registro.get('destino',''),
+                    key=f'destino_edit_{indice}'
+                )
+
+                # Coluna 5: Botões de ação
+                with cols[5]:
+                    if st.button("🔄 Atualizar", key=f'atualizar_{indice}', use_container_width=True):
+                        if cls._validar_atualizacao(nova_doca, novo_destino):
+                            cls._atualizar_operacao(dataframe, indice, nova_doca, novo_destino)
+                    if st.button("✅ Finalizar", key=f'finalizar_{indice}', use_container_width=True):
+                        cls._finalizar_operacao(dataframe, indice)
 
     @classmethod
     def _exibir_chamados_aguardando(cls, dataframe):
-        """Exibe motoristas aguardando atendimento"""
-        st.markdown("### Chamados Aguardando")
+        """Exibe chamados pendentes com destaque no destino"""
         aguardando = dataframe[dataframe['status'] == 'Aguardando']
-        
         if aguardando.empty:
-            st.info('Nenhum motorista aguardando atendimento')
+            st.info("✅ Todos os chamados foram atendidos")
             return
 
         for indice, registro in aguardando.iterrows():
-            with st.container(border=True):
-                colunas = st.columns([3, 1, 1, 2])
-                
-                colunas[0].markdown(
-                    f"**Motorista:** {registro['motorista']}  \n"
-                    f"**Transportadora:** {registro['transportadora']}"
+            with st.container():
+                cols = st.columns([3, 1, 1, 2, 1.5])
+
+                cols[0].markdown(
+                    f"**Chamado para:** {registro.get('destino','')}\n"
+                    f"**Motorista:** {registro.get('motorista','')}\n"
+                    f"**Transportadora:** {registro.get('transportadora','')}"
                 )
-                
-                colunas[1].metric("Placa", registro['placa'])
-                colunas[2].metric("Senha", registro['senha'])
-                
-                doca = colunas[3].text_input("Doca Inicial", key=f'doca_{indice}')
-                destino = colunas[3].text_input("Destino Inicial", key=f'dest_{indice}')
-                
-                if colunas[3].button("▶️ Iniciar Operação", key=f'iniciar_{indice}'):
-                    cls._iniciar_operacao(dataframe, indice, doca, destino)
+                cols[1].metric("🚘 Placa", registro.get('placa',''))
+                cols[2].metric("🔑 Senha", registro.get('senha',''))
+
+                with cols[3]:
+                    doca = st.text_input(
+                        "📍 Doca Designada",
+                        value=registro.get('doca',''),
+                        key=f'doca_{indice}'
+                    )
+                    destino = st.text_input(
+                        "🎯 Destino Confirmado",
+                        value=registro.get('destino',''),
+                        key=f'dest_{indice}'
+                    )
+                with cols[4]:
+                    if st.button("▶️ Iniciar Operação", key=f'iniciar_{indice}', use_container_width=True):
+                        if cls._validar_inicio(doca, destino):
+                            cls._iniciar_operacao(dataframe, indice, doca, destino)
+
+    @classmethod
+    def _exibir_operacoes_finalizadas(cls, dataframe):
+        """Exibe histórico de operações com possibilidade de reabertura"""
+        finalizadas = dataframe[dataframe['status'] == 'Finalizado']
+        if finalizadas.empty:
+            st.info("🕰️ Sem histórico de operações")
+            return
+
+        for indice, registro in finalizadas.iterrows():
+            with st.container():
+                cols = st.columns([4, 1, 1, 1.5])
+
+                cols[0].markdown(
+                    f"### ✅ Operação Finalizada\n"
+                    f"**Destino:** {registro.get('destino','')}\n"
+                    f"**Motorista:** {registro.get('motorista','')}\n"
+                    f"**Transportadora:** {registro.get('transportadora','')}\n"
+                    f"**Duração:** {cls._calcular_duracao(registro)}"
+                )
+                cols[1].metric("🚘 Placa", registro.get('placa',''))
+                cols[2].metric("📍 Doca", registro.get('doca','N/A'))
+
+                with cols[3]:
+                    if st.button("↩️ Reabrir", key=f'reabrir_{indice}', use_container_width=True):
+                        cls._reabrir_operacao(dataframe, indice)
+
+    @staticmethod
+    def _calcular_duracao(registro):
+        """Calcula duração da operação"""
+        if pd.notnull(registro.get('chamado_em')) and pd.notnull(registro.get('finalizado_em')):
+            delta = registro['finalizado_em'] - registro['chamado_em']
+            h = int(delta.total_seconds() // 3600)
+            m = int((delta.total_seconds() % 3600) // 60)
+            return f"{h}h {m}min"
+        return "—"
+
+    @staticmethod
+    def _validar_inicio(doca, destino):
+        erros = []
+        if not doca.strip():   erros.append("Número da doca obrigatório")
+        if not destino.strip(): erros.append("Destino obrigatório")
+        for e in erros: st.error(e)
+        return not erros
+
+    @staticmethod
+    def _validar_atualizacao(doca, destino):
+        erros = []
+        if not doca.strip():   erros.append("Nova doca obrigatório")
+        if not destino.strip(): erros.append("Novo destino obrigatório")
+        for e in erros: st.error(e)
+        return not erros
 
     @classmethod
     def _iniciar_operacao(cls, dataframe, indice, doca, destino):
-        """Inicia uma nova operação"""
-        try:
-            dataframe.at[indice, 'status'] = 'Chamado'
-            dataframe.at[indice, 'chamado_em'] = datetime.now()
-            dataframe.at[indice, 'doca'] = doca
-            dataframe.at[indice, 'destino'] = destino
-            GerenciadorDados.salvar_registros(dataframe)
-            st.session_state.feedback_patio = ('sucesso', 'Operação iniciada com sucesso!')
-            st.rerun()
-        except Exception as erro:
-            st.session_state.feedback_patio = ('erro', f'Falha ao iniciar operação: {str(erro)}')
-            st.rerun()
+        df = dataframe.copy()
+        df.at[indice, 'status']     = 'Chamado'
+        df.at[indice, 'chamado_em'] = pd.Timestamp.now()
+        df.at[indice, 'doca']       = doca.strip()
+        df.at[indice, 'destino']    = destino.strip()
+        GerenciadorDados.salvar_registros(df)
+        st.session_state.feedback_patio = ('sucesso', f"Operação iniciada na doca {doca}")
+        st.rerun()
+
+    @classmethod
+    def _atualizar_operacao(cls, dataframe, indice, doca, destino):
+        df = dataframe.copy()
+        alter = []
+        if df.at[indice,'doca']    != doca.strip():
+            alter.append(f"Doca: {df.at[indice,'doca']} → {doca}")
+            df.at[indice,'doca'] = doca.strip()
+        if df.at[indice,'destino'] != destino.strip():
+            alter.append(f"Destino: {df.at[indice,'destino']} → {destino}")
+            df.at[indice,'destino'] = destino.strip()
+        if alter:
+            df.at[indice,'status'] = 'Em Progresso'
+            GerenciadorDados.salvar_registros(df)
+            st.session_state.feedback_patio = ('sucesso', "\n".join(alter))
+        st.rerun()
+
+    @classmethod
+    def _finalizar_operacao(cls, dataframe, indice):
+        df = dataframe.copy()
+        df.at[indice, 'status']       = 'Finalizado'
+        df.at[indice, 'finalizado_em'] = pd.Timestamp.now()
+        GerenciadorDados.salvar_registros(df)
+        st.session_state.feedback_patio = ('sucesso', "🕰️ Operação finalizada")
+        st.rerun()
+
+    @classmethod
+    def _reabrir_operacao(cls, dataframe, indice):
+        df = dataframe.copy()
+        df.at[indice, 'status'] = 'Em Progresso'  # Correção do status
+        df.at[indice, 'finalizado_em'] = pd.NaT
+        GerenciadorDados.salvar_registros(df)  # Alterado de dataframe para df
+        st.session_state.feedback_patio = ('sucesso', "↩️ Operação reaberta")
+        st.rerun()
 
 class ModuloMotoristas:
     """Módulo para exibição de informações aos motoristas"""
@@ -649,30 +868,65 @@ class ModuloRelatorios:
 # CONTROLE PRINCIPAL
 # ==================================================
 
+def login():
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+
+    if st.session_state.logged_in:
+        return
+
+    st.sidebar.title("🔒 Login")
+    raw_username = st.sidebar.text_input("Usuário", key="login_user")
+    password = st.sidebar.text_input("Senha", type="password", key="login_pass")
+
+    username = raw_username.strip().upper()
+    error_container = st.sidebar.empty()
+
+    if st.sidebar.button("Entrar", key="login_btn"):
+        user = USUARIOS.get(username)
+        if user and user[0] == password:
+            st.session_state.update({
+                'user': username,
+                'user_role': user[1],
+                'logged_in': True,
+                'login_time': time.time()    # <— aqui
+            })
+            st.rerun()
+        else:
+            error_container.error("Usuário ou senha inválidos")
+
 def main():
-    """Função principal da aplicação"""
     inicializar_estado_aplicacao()
+
+    # 1) se não está logado, mostra o formulário e sai
+    if not st.session_state.logged_in:
+        login()
+        return
+
+    # 2) agora sim: checa expiração a partir de quando foi feito login
+    if time.time() - st.session_state.login_time > 1800:
+        st.warning("Sessão expirada, faça login novamente.")
+        st.session_state.logged_in = False
+        st.rerun()
+
     configurar_pagina()
     ComponentesInterface.exibir_cabecalho()
-    
+
     controles = ComponentesInterface.criar_painel_controle()
     st.session_state.modo_atual = controles['modo_operacao']
-    dados = GerenciadorDados.carregar_registros()
-    
-    st.session_state.update({
-        'audio_habilitado': controles['audio_ativo'],
-        'atualizacao_automatica': controles['atualizacao_automatica']
-    })
 
+    # 4) carrega dados e chama o módulo
+    dados = GerenciadorDados.carregar_registros()
     modulos = {
         'Administrativo': ModuloAdministrativo.exibir_painel,
         'Controle Pátio': ModuloPatioOperacional.exibir_painel,
         'Informações Motoristas': ModuloMotoristas.exibir_painel,
         'Relatórios': ModuloRelatorios.exibir_painel
     }
-    modulos[controles['modo_operacao']](dados)
+    modulos[st.session_state.modo_atual](dados)
 
     _gerenciar_atualizacao_automatica()
+
 
 def _gerenciar_atualizacao_automatica():
     """Controla a atualização automática do sistema"""
