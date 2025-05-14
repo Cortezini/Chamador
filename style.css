@@ -135,6 +135,57 @@
   border-radius: 1rem;
 }
 
+/* Estilos para novos ícones e elementos */
+[data-testid="stMetricValue"] {
+    font-size: 1.2rem !important;
+}
+
+.stButton>button {
+    transition: all 0.3s ease !important;
+}
+
+.stButton>button:hover {
+    transform: scale(1.05);
+}
+
+/* ================================================
+   Nas colunas de Chamados Ativos, motoristas e 
+   transportadoras ficam sempre em linhas separadas
+   ================================================ */
+
+/* Faz com que cada <strong> do Markdown seja um bloco */
+.stMarkdown strong {
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+/* Garante que as quebras de linha no Markdown sejam respeitadas */
+.stMarkdown p {
+  white-space: pre-line;
+}
+
+/* =====================================================
+   GRID FLEXÍVEL PARA O PAINEL (todas as linhas de cols)
+   ===================================================== */
+
+.grid-patio {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;              /* espaçamento entre “caixinhas” */
+  margin-bottom: 1.5rem;  /* distância entre linhas de grid */
+  align-items: start;     /* tudo no topo */
+}
+
+/* opcional: mantém o estilo de card em cada célula */
+.grid-patio > div {
+  background: white;
+  padding: 1rem;
+  border-radius: var(--radius);
+  box-shadow: var(--box-shadow);
+}
+
+
+
 /* ================ ESTADOS ESPECÍFICOS ================ */
 .progress-status {
   background: #fff3cd;
