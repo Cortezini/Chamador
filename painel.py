@@ -442,6 +442,30 @@ class ModuloPatioOperacional:
     def _exibir_operacoes_ativas(cls, dataframe):
         """Exibe operações em andamento com layout otimizado"""
         operacoes = dataframe[dataframe['status'].isin(['Chamado', 'Em Progresso'])]
+        with st.container():
+            st.markdown('<div class="patio-vertical">', unsafe_allow_html=True)
+            
+            for indice, registro in operacoes.iterrows():
+                st.markdown(f"""
+                    <div class="operacao-card" data-status="{registro['status']}">
+                        <div class="operacao-content">
+                            <div>
+                                <div class="info-veiculo">
+                                    <span class="placa-container">{registro['placa']}</span>
+                                    <span class="doca-badge">{registro['doca']}</span>
+                                </div>
+                                <div class="detalhe-principal">{registro['motorista']}</div>
+                                <div class="detalhe-secundario">{registro['transportadora']}</div>
+                                <div class="destino-badge">{registro['destino']}</div>
+                            </div>
+                            <div class="controles-operacao">
+                                <!-- Seus controles aqui -->
+                            </div>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
         if operacoes.empty:
             st.info("🌟 Nenhuma operação ativa no momento")
             return
