@@ -18,6 +18,7 @@ import pandas as pd
 import numpy as np
 import re
 import base64
+import time
 from datetime import datetime, timedelta
 from pathlib import Path
 from scipy.io.wavfile import write
@@ -114,7 +115,13 @@ ESTADO_INICIAL = {
     'atualizacao_automatica': False,
     'modo_atual': None,
     'feedback_patio': None
+    
 }
+
+for key, value in ESTADO_INICIAL.items():
+    if key not in st.session_state:
+        st.session_state[key] = value
+
 
 USUARIOS = {
     "PAULO":("Paulo1405", "administrador"),
@@ -144,10 +151,22 @@ PERMISSOES = {
 
 
 def inicializar_estado_aplicacao():
-    """Configura valores padrão no session_state"""
-    for chave, valor in ESTADO_INICIAL.items():
-        if chave not in st.session_state:
-            st.session_state[chave] = valor
+    defaults = {
+        'logged_in': False,
+        'user': None,
+        'user_role': None,
+        'login_time': 0,
+        'ultima_atualizacao': datetime.now(),
+        'ultimo_chamado': None,
+        'alerta_reproduzido': False,
+        'audio_habilitado': True,
+        'atualizacao_automatica': False,
+        'modo_atual': 'Controle Pátio',
+        'feedback_patio': None
+    }
+    for key, value in defaults.items():
+        if key not in st.session_state:
+            st.session_state[key] = value
 
 # ==================================================
 # UTILITÁRIOS DO SISTEMA
@@ -857,43 +876,45 @@ class ModuloRelatorios:
 # ==================================================
 
 def login():
-    """Gerencia o processo de autenticação do usuário"""
-    # Garante que o estado logged_in existe
     if 'logged_in' not in st.session_state:
         st.session_state.logged_in = False
-    
-    # Se já estiver logado, não exibe o formulário
+
     if st.session_state.logged_in:
         return
-    
+
     st.sidebar.title("🔒 Login")
-    username = st.sidebar.text_input("Usuário", key="login_user")
+    raw_username = st.sidebar.text_input("Usuário", key="login_user")
     password = st.sidebar.text_input("Senha", type="password", key="login_pass")
-    
-    # Container para mensagens de erro
+
+    username = raw_username.strip().upper()
     error_container = st.sidebar.empty()
-    
+
     if st.sidebar.button("Entrar", key="login_btn"):
         user = USUARIOS.get(username)
-        
         if user and user[0] == password:
-            # Atualiza o estado da sessão
             st.session_state.update({
                 'user': username,
                 'user_role': user[1],
-                'logged_in': True
+                'logged_in': True,
+                'login_time': time.time()    # <— aqui
             })
-            st.rerun()  # Força atualização imediata da página
+            st.rerun()
         else:
             error_container.error("Usuário ou senha inválidos")
 
 def main():
     inicializar_estado_aplicacao()
 
-    # se não logado, exibe login e retorna
-    if not st.session_state.get('logged_in', False):
+    # 1) se não está logado, mostra o formulário e sai
+    if not st.session_state.logged_in:
         login()
         return
+
+    # 2) agora sim: checa expiração a partir de quando foi feito login
+    if time.time() - st.session_state.login_time > 1800:
+        st.warning("Sessão expirada, faça login novamente.")
+        st.session_state.logged_in = False
+        st.rerun()
 
     configurar_pagina()
     ComponentesInterface.exibir_cabecalho()
