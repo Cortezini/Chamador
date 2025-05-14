@@ -402,7 +402,7 @@ class ModuloPatioOperacional:
         aguardando = dataframe[dataframe['status'] == 'Aguardando']
         
         if aguardando.empty:
-            st.info("📭 Nenhum chamado aguardando atendimento")
+            st.info("Nenhum chamado aguardando atendimento")
             return
 
         for indice, registro in aguardando.iterrows():
