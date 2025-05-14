@@ -117,11 +117,11 @@ ESTADO_INICIAL = {
 }
 
 USUARIOS = {
-    "PAULO":    ("Paulo1405", "administrador"),
-    "MATHEUS": ("Matheus1405", "administrador"),
-    "admin":    ("senha123", "administrador"),
-    "operador": ("op@2025",    "patio"),
-    "faturamento":  ("fat@2025",    "faturamento"),
+    "PAULO":("Paulo1405", "administrador"),
+    "MATHEUS":("Matheus1405", "administrador"),
+    "admin":("senha123", "administrador"),
+    "operador":("op@2025", "patio"),
+    "faturamento":("fat@2025", "faturamento"),
 }
 
 # quem pode ver o quê
