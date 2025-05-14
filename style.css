@@ -1,155 +1,99 @@
-/* ================ ABA MOTORISTAS - ESTILOS ESPECÍFICOS ================ */
-
-/* Container principal do painel */
-.driver-panel {
-  display: grid;
-  gap: 2rem;
-  padding: 1.5rem;
-  background: var(--background);
+:root {
+  /* ================ VARIÁVEIS GLOBAIS ================ */
+  --primary: #FF5733;
+  --secondary: #C70039;
+  --accent: #2c3e50;
+  --background: #f8f9fa;
+  --text-primary: #2c3e50;
+  --text-muted: #6c757d;
+  --success: #28a745;
+  --error: #dc3545;
+  --warning: #ffc107;
+  --info: #17a2b8;
+  
+  --radius: 8px;
+  --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+  --box-shadow-hover: 0 8px 25px rgba(0, 86, 179, 0.15);
+  --transition: all 0.3s ease;
 }
 
-/* Destaque para último chamado */
+/* ================ RESET E ESTILOS BASE ================ */
+.stMarkdown p {
+  margin-bottom: 0.5rem;
+  line-height: 1.3;
+}
+
+.meu-card[data-testid="stVerticalBlockBorderWrapper"] {
+  padding: 1.5rem !important;
+  border: 1px solid #e0e0e0 !important;
+  border-radius: var(--radius);
+}
+
+/* ================ COMPONENTES COMUNS ================ */
+.card {
+  padding: 1.5rem;
+  border-radius: var(--radius);
+  background: white;
+  box-shadow: var(--box-shadow);
+  transition: var(--transition);
+  margin-bottom: 1.5rem;
+}
+
 .card-highlight {
-  position: relative;
-  border: none;
+  border-left: 5px solid var(--primary);
   background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
   color: white !important;
-  padding: 2rem;
-  border-radius: calc(var(--radius) * 2);
-  overflow: hidden;
+  position: relative;
   animation: pulse-highlight 2s infinite alternate;
 }
 
+.card-muted {
+  background: var(--background);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* ================ ELEMENTOS INTERATIVOS ================ */
+.stButton > button {
+  width: 100%;
+  margin: 0.25rem 0;
+  border-radius: var(--radius);
+  transition: var(--transition);
+}
+
+.stTextInput input {
+  border-radius: var(--radius) !important;
+  border: 1px solid #ced4da !important;
+  padding: 0.5rem 0.75rem !important;
+  width: 100% !important;
+}
+
+/* ================ ELEMENTOS ESPECÍFICOS ================ */
+.placa-container {
+  border: 1px solid var(--text-primary);
+  border-radius: calc(var(--radius) / 2);
+  padding: 0.5rem;
+  text-align: center;
+  font-family: 'Courier New', monospace;
+  font-weight: bold;
+}
+
+.senha-container {
+  color: var(--primary);
+  font-weight: bold;
+  text-align: center;
+}
+
+.status-badge {
+  padding: 0.5rem;
+  border-radius: calc(var(--radius) / 2);
+  font-weight: bold;
+  text-align: center;
+}
+
+/* ================ ANIMAÇÕES ================ */
 @keyframes pulse-highlight {
   0% { transform: scale(1); }
   100% { transform: scale(1.01); }
-}
-
-.card-highlight::before {
-  content: "ÚLTIMO CHAMADO";
-  position: absolute;
-  top: 0;
-  right: 0;
-  background: rgba(255, 255, 255, 0.15);
-  padding: 0.5rem 1rem;
-  border-bottom-left-radius: var(--radius);
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.card-highlight h3 {
-  font-size: 1.75rem;
-  margin-bottom: 0.5rem;
-}
-
-.card-highlight .badge {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
-  font-size: 0.9rem;
-}
-
-/* Container do histórico */
-.history-container {
-  background: var(--card-bg);
-  border-radius: var(--radius);
-  box-shadow: var(--box-shadow);
-  padding: 1rem;
-}
-
-/* Cards do histórico */
-.card-muted {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1rem;
-  padding: 1.25rem;
-  background: var(--card-bg);
-  border: 1px solid rgba(0, 0, 0, 0.05);
-  border-radius: var(--radius);
-  margin-bottom: 1rem;
-  transition: all 0.3s ease;
-  position: relative;
-}
-
-.card-muted:hover {
-  transform: translateX(10px);
-  box-shadow: var(--box-shadow-hover);
-}
-
-/* Status indicators */
-.status-indicator {
-  position: absolute;
-  left: -8px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 6px;
-  height: 60%;
-  border-radius: 3px;
-  background: var(--secondary);
-}
-
-.status-indicator.expired {
-  background: #dc3545;
-}
-
-/* Timeline visualization */
-.driver-timeline {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 1rem;
-  padding: 1rem 0;
-}
-
-.timeline-marker {
-  width: 20px;
-  height: 20px;
-  border: 3px solid var(--primary);
-  border-radius: 50%;
-  position: relative;
-}
-
-.timeline-marker::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 100%;
-  transform: translateX(-50%);
-  height: calc(100% + 1rem);
-  width: 2px;
-  background: var(--primary);
-}
-
-/* Responsividade */
-@media (max-width: 768px) {
-  .card-highlight {
-    padding: 1.5rem;
-  }
-  
-  .card-highlight h3 {
-    font-size: 1.5rem;
-  }
-  
-  .card-muted {
-    grid-template-columns: 1fr;
-    gap: 0.5rem;
-  }
-  
-  .driver-timeline {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* Alertas sonoros visuais */
-.sound-indicator {
-  position: fixed;
-  bottom: 2rem;
-  right: 2rem;
-  width: 50px;
-  height: 50px;
-  border-radius: 50%;
-  background: var(--secondary);
-  animation: sound-pulse 1.5s infinite;
-  display: none;
 }
 
 @keyframes sound-pulse {
@@ -157,311 +101,69 @@
   100% { transform: scale(2); opacity: 0; }
 }
 
-/* Progress bar para tempo de espera */
-.waiting-progress {
-  height: 6px;
-  background: rgba(0, 0, 0, 0.1);
-  border-radius: 3px;
-  overflow: hidden;
-  margin-top: 1rem;
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }
 
-.progress-bar {
-  height: 100%;
-  background: var(--secondary);
-  width: 50%;
-  transition: width 0.5s ease;
+/* ================ LAYOUT RESPONSIVO ================ */
+@media (max-width: 768px) {
+  .card {
+    padding: 1rem;
+  }
+  
+  .card-highlight h3 {
+    font-size: 1.5rem;
+  }
+  
+  [data-testid="stVerticalBlockBorderWrapper"] {
+    padding: 1rem !important;
+  }
 }
 
-/* ================ MELHORIAS GERAIS ================ */
-/* Ajustes para melhor hierarquia visual */
-.card-highlight .stMarkdown {
-  color: white !important;
-}
-
-.card-muted .stMarkdown {
-  color: var(--text-muted) !important;
-}
-
-/* Melhor espaçamento para dados importantes */
+/* ================ UTILITÁRIOS ================ */
 .data-emphasis {
   font-size: 1.2rem;
   font-weight: 600;
   color: var(--primary);
 }
 
-/* Sombra dinâmica para cards ativos */
-.card-active {
-  box-shadow: 0 8px 25px rgba(0, 86, 179, 0.15);
-}
-
-/* Efeito de loading */
-@keyframes loading-pulse {
-  0% { opacity: 0.6; transform: scale(1); }
-  50% { opacity: 1; transform: scale(1.05); }
-  100% { opacity: 0.6; transform: scale(1); }
-}
-
-.loading-state {
-  animation: loading-pulse 1.5s infinite;
-  filter: grayscale(0.5);
-}
-
-/* Cards Destacados */
-.card-highlight {
-    padding: 1.5rem;
-    border-radius: 10px;
-    background: #ffffff;
-    border-left: 5px solid var(--primary);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-    margin-bottom: 1.5rem;
-}
-
-/* Cards do Histórico */
-.card-muted {
-    padding: 1rem;
-    border-radius: 8px;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
-    margin-bottom: 0.75rem;
-    transition: all 0.2s ease;
-}
-
-.card-muted:hover {
-    transform: translateX(5px);
-    border-color: var(--primary);
-}
-
-/* Layout de Colunas */
-.stColumn > div {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0;
-}
-
-/* Campos de Input */
-.stTextInput input {
-    border-radius: 6px !important;
-    border: 1px solid #ced4da !important;
-    padding: 0.5rem 0.75rem !important;
-}
-
-/* Destaques Temporais */
 .time-badge {
-    background: var(--primary);
-    color: white !important;
-    padding: 0.25rem 0.75rem;
-    border-radius: 1rem;
-    font-size: 0.9rem;
+  background: var(--primary);
+  color: white !important;
+  padding: 0.25rem 0.75rem;
+  border-radius: 1rem;
 }
 
-/* Layout Básico */
-.stContainer {
-    padding: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-/* Cards */
-[data-testid="stVerticalBlock"] > [data-testid="stVerticalBlockBorderWrapper"] {
-    border-radius: 8px;
-    border: 1px solid #e0e0e0 !important;
-    padding: 1.25rem;
-    margin-bottom: 1rem;
-}
-
-/* Títulos */
-h3 {
-    color: #2c3e50 !important;
-    margin-bottom: 0.5rem !important;
-}
-
-/* Inputs Concentrados */
-.stTextInput {
-    margin-bottom: 1rem;
-}
-
-.stTextInput input {
-    width: 100% !important;
-    min-width: 150px;
-}
-
-/* Espaçamento entre Colunas */
-.stColumn {
-    padding: 0 0.5rem;
-}
-
-/* Destaque Temporal */
-.time-display {
-    font-size: 1.25rem;
-    color: #2c3e50;
-    font-weight: 600;
-}
-
-/* style.css */
-.doca-font {
-    font-size: 24px;
-    color: var(--primary);
-    font-weight: 600;
-}
-
-.destino-font {
-    font-size: 24px;
-    color: #2c3e50;
-    font-weight: 600;
-}
-
-.stMarkdown h3 {
-    margin-bottom: 0.5rem;
-}
-
-[data-testid="stVerticalBlockBorderWrapper"] {
-    padding: 1.5rem !important;
-}
-
-.stButton>button {
-    width: 100%;
-    margin: 0.25rem 0;
-}
-
-.status-badge {
-    padding: 0.5rem;
-    border-radius: 5px;
-    font-weight: bold;
-    text-align: center;
-}
-
+/* ================ ESTADOS ESPECÍFICOS ================ */
 .progress-status {
-    background: #fff3cd;
-    color: #856404;
+  background: #fff3cd;
+  color: #856404;
 }
 
 .finished-status {
-    background: #d4edda;
-    color: #155724;
+  background: #d4edda;
+  color: #155724;
 }
 
-@keyframes slideIn {
-    from { transform: translateX(100%); }
-    to { transform: translateX(0); }
-}
-
-/* ================ NOTIFICAÇÕES DE FEEDBACK ================ */
-div[data-testid="stNotification"] {
-    position: fixed !important;
-    top: 20px !important;
-    right: 20px !important;
-    z-index: 9999 !important;
-    min-width: 300px;
-    border-radius: 8px !important;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
-    animation: slideIn 0.3s ease-out !important;
-    border-left: 4px solid transparent !important;
-    overflow: visible !important;
-    transform: none !important;
-    background: white;
-    padding: 0 !important;
-    margin: 0 !important;
-}
-
-div[data-testid="stNotification"] > div {
-    padding: 1rem !important;
-    display: flex !important;
-    align-items: center !important;
-    gap: 0.75rem !important;
-    font-size: 0.95rem !important;
-    margin: 0 !important;
-}
-
-div[data-testid="stNotification"].success-alert {
-    background: #d4edda !important;
-    border-color: #28a745 !important;
-    color: #155724 !important;
-}
-
-div[data-testid="stNotification"].error-alert {
-    background: #f8d7da !important;
-    border-color: #dc3545 !important;
-    color: #721c24 !important;
-}
-
-@keyframes slideIn {
-    from { 
-        transform: translateX(100%) !important;
-        opacity: 0 !important;
-    }
-    to { 
-        transform: translateX(0) !important;
-        opacity: 1 !important;
-    }
-}
-
-/* Garantir que não haja overflow escondendo a notificação */
-section.main {
-    overflow: visible !important;
-}
-
-div.block-container {
-    overflow: visible !important;
-    padding-top: 2rem !important;
-}
-
-/* ================ ESTILOS DO PAINEL DE RELATÓRIOS ================ */
-
-/* Filtros */
-div[data-testid="column"] > div[data-testid="stVerticalBlock"] {
-    background: #ffffff;
-    padding: 1rem;
-    border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-bottom: 1.5rem;
-}
-
-/* Cabeçalho da tabela */
-thead th {
-    background: var(--primary) !important;
-    color: white !important;
-    font-weight: 600 !important;
-}
-
-/* Linhas da tabela */
-tbody tr {
-    transition: all 0.2s ease;
-}
-
-tbody tr:hover {
-    background-color: #f8f9fa !important;
-    transform: translateX(5px);
-}
-
-/* Barra de progresso */
-div[role="progressbar"] {
-    height: 8px !important;
-    border-radius: 4px !important;
-}
-
-div[role="progressbar"] > div {
-    background: var(--secondary) !important;
-}
-
-/* Status colors */
-td[data-testid="stDataFrameStyledCell"] > div {
-    border-radius: 5px;
-    padding: 0.25rem 0.5rem;
-    text-align: center;
-    font-weight: 500;
-}
-
-/* Cores dos status */
 div[data-status="Aguardando"] { background: #fff3cd; color: #856404; }
 div[data-status="Chamado"] { background: #cce5ff; color: #004085; }
 div[data-status="Em Progresso"] { background: #d4edda; color: #155724; }
 div[data-status="Finalizado"] { background: #f8f9fa; color: #6c757d; }
 
-/* Métricas */
-div[data-testid="metric-container"] {
-    border: 1px solid #dee2e6;
-    border-radius: 10px;
-    padding: 1rem;
+/* ================ NOTIFICAÇÕES ================ */
+div[data-testid="stNotification"] {
+  background: white !important;
+  border-left: 4px solid transparent !important;
+  animation: slideIn 0.3s ease-out !important;
 }
 
+div[data-testid="stNotification"].success-alert {
+  background: #d4edda !important;
+  border-color: var(--success) !important;
+}
+
+div[data-testid="stNotification"].error-alert {
+  background: #f8d7da !important;
+  border-color: var(--error) !important;
+}

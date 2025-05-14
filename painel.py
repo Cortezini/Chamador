@@ -240,14 +240,15 @@ class ModuloAdministrativo:
                 dados = {
                     'motorista': st.text_input('Nome Completo*', placeholder="Ex: João Silva"),
                     'contato': st.text_input('Contato*', max_chars=15, placeholder="(XX) 99999-9999"),
-                    'placa': st.text_input('Placa*', max_chars=7, placeholder="AAA0A00")
+                    'placa': st.text_input('Placa*', max_chars=7, placeholder="AAA0A00"),
+                    'destino': st.text_input('Destino', placeholder="Destino da carga")
                 }
             
             with col2:
                 dados.update({
                     'senha': st.text_input('Senha', max_chars=3, placeholder="123"),
                     'transportadora': st.text_input('Transportadora*', placeholder="Nome da empresa"),
-                    'cliente': st.text_input('Cliente', placeholder="Destinatário")
+                    'cliente': st.text_input('Cliente', placeholder="Destinatário"),
                 })
             
             dados['vendedor'] = st.text_input('Vendedor Responsável')
@@ -263,10 +264,23 @@ class ModuloAdministrativo:
         validacoes = CONFIGURACOES['validacoes']
         erros = []
         
+        # Processar telefone
+        raw_contato = dados['contato']
+        digits = re.sub(r'\D', '', raw_contato)
+        if len(digits) not in [10, 11]:
+            erros.append("Número de telefone inválido. Deve ter 10 ou 11 dígitos.")
+        else:
+            # Formatar o telefone
+            if len(digits) == 11:
+                formatted_contato = f'({digits[:2]}) {digits[2:7]}-{digits[7:]}'
+            else:
+                formatted_contato = f'({digits[:2]}) {digits[2:6]}-{digits[6:]}'
+            dados['contato'] = formatted_contato
+            if not re.match(validacoes['telefone'], dados['contato']):
+                erros.append("Formato de telefone inválido após formatação.")
+        
         if not re.match(validacoes['nome'], dados['motorista'], re.IGNORECASE):
             erros.append("Nome inválido (mín. 5 caracteres alfabéticos)")
-        if not re.match(validacoes['telefone'], dados['contato']):
-            erros.append("Formato de telefone inválido")
         if not re.fullmatch(validacoes['placa'], dados['placa'].upper().replace(' ', '')):
             erros.append("Placa inválida")
         if dados['senha'] and not re.fullmatch(validacoes['senha'], dados['senha']):
@@ -322,117 +336,168 @@ class ModuloPatioOperacional:
         st.subheader("Controle Operacional do Pátio")
         ComponentesInterface.exibir_notificacao()
         
-        operacoes_ativas = dataframe[dataframe['status'].isin(['Chamado', 'Em Progresso'])]
-        if not operacoes_ativas.empty:
-            cls._exibir_operacoes_ativas(operacoes_ativas, dataframe)
-        
-        cls._exibir_chamados_aguardando(dataframe)
+        with st.container():
+            tab1, tab2, tab3 = st.tabs(["Operações Ativas", "Chamados Aguardando", "Histórico"])
+            
+            with tab1:
+                operacoes_ativas = dataframe[dataframe['status'].isin(['Chamado', 'Em Progresso'])]
+                if not operacoes_ativas.empty:
+                    cls._exibir_operacoes_ativas(operacoes_ativas, dataframe)
+                else:
+                    st.info("Nenhuma operação em andamento")
+            
+            with tab2:
+                cls._exibir_chamados_aguardando(dataframe)
+            
+            with tab3:
+                operacoes_finalizadas = dataframe[dataframe['status'] == 'Finalizado']
+                if not operacoes_finalizadas.empty:
+                    cls._exibir_operacoes_finalizadas(operacoes_finalizadas, dataframe)
+                else:
+                    st.info("Nenhuma operação finalizada")
 
     @classmethod
     def _exibir_operacoes_ativas(cls, operacoes, dataframe):
-        """Exibe operações em andamento"""
-        st.markdown("### Operações em Andamento")
+        """Exibe operações em andamento com layout otimizado"""
         for indice, registro in operacoes.iterrows():
             with st.container(border=True):
-                colunas = st.columns([3, 1, 1, 2, 2])
+                cols = st.columns([3, 1, 1, 2, 2, 1.5])
                 
-                colunas[0].markdown(
-                    f"**Motorista:** {registro['motorista']}  \n"
-                    f"**Transportadora:** {registro['transportadora']}  \n"
-                    f"**Placa:** `{registro['placa']}`"
+                # Coluna 0: Informações principais
+                cols[0].markdown(
+                    f"**Rota:** {registro['destino']}\n\n"
+                    f"**Motorista:** {registro['motorista']}\n"
+                    f"**Transportadora:** {registro['transportadora']}"
                 )
                 
-                colunas[1].markdown(f"**Doca:**  \n`{registro['doca'] or '---'}`")
-                colunas[2].markdown(f"**Destino:**  \n`{registro['destino'] or '---'}`")
+                # Coluna 1: Dados do veículo
+                cols[1].metric("Placa", registro['placa'])
+                cols[2].metric("Senha", registro['senha'])
                 
-                nova_doca = colunas[3].text_input(
+                # Coluna 3: Controles doca
+                nova_doca = cols[3].text_input(
                     "Nova Doca", 
-                    value=registro['doca'], 
+                    value=registro['doca'],
                     key=f'nova_doca_{indice}'
                 )
                 
-                novo_destino = colunas[4].text_input(
-                    "Novo Destino", 
-                    value=registro['destino'], 
+                # Coluna 4: Ajuste de destino
+                novo_destino = cols[4].text_input(
+                    "Ajustar Destino", 
+                    value=registro['destino'],
                     key=f'novo_destino_{indice}'
                 )
                 
-                col_botoes = st.columns(2)
-                if col_botoes[0].button("🔄 Atualizar", key=f'atualizar_{indice}'):
-                    cls._atualizar_operacao(dataframe, indice, nova_doca, novo_destino)
-                
-                if col_botoes[1].button("✅ Finalizar", key=f'finalizar_{indice}', type='primary'):
-                    cls._finalizar_operacao(dataframe, indice)
-
-    @classmethod
-    def _atualizar_operacao(cls, dataframe, indice, doca, destino):
-        """Atualiza informações da operação"""
-        try:
-            dataframe.at[indice, 'doca'] = doca
-            dataframe.at[indice, 'destino'] = destino
-            dataframe.at[indice, 'status'] = 'Em Progresso'
-            GerenciadorDados.salvar_registros(dataframe)
-            st.session_state.feedback_patio = ('sucesso', f'Doca {doca} atualizada!')
-            st.rerun()
-        except Exception as erro:
-            st.session_state.feedback_patio = ('erro', f'Falha na atualização: {str(erro)}')
-            st.rerun()
-
-    @classmethod
-    def _finalizar_operacao(cls, dataframe, indice):
-        """Finaliza uma operação em andamento"""
-        try:
-            dataframe.at[indice, 'status'] = 'Finalizado'
-            dataframe.at[indice, 'finalizado_em'] = datetime.now()
-            GerenciadorDados.salvar_registros(dataframe)
-            st.session_state.feedback_patio = ('sucesso', 'Operação finalizada com sucesso!')
-            st.rerun()
-        except Exception as erro:
-            st.session_state.feedback_patio = ('erro', f'Erro ao finalizar: {str(erro)}')
-            st.rerun()
+                # Coluna 5: Botões de ação
+                with cols[5]:
+                    if st.button("🔄 Atualizar", key=f'atualizar_{indice}', use_container_width=True):
+                        cls._atualizar_operacao(dataframe, indice, nova_doca, novo_destino)
+                    
+                    if st.button("✅ Finalizar", key=f'finalizar_{indice}', type='primary', use_container_width=True):
+                        cls._finalizar_operacao(dataframe, indice)
 
     @classmethod
     def _exibir_chamados_aguardando(cls, dataframe):
-        """Exibe motoristas aguardando atendimento"""
-        st.markdown("### Chamados Aguardando")
+        """Exibe chamados pendentes com destaque no destino"""
         aguardando = dataframe[dataframe['status'] == 'Aguardando']
         
         if aguardando.empty:
-            st.info('Nenhum motorista aguardando atendimento')
+            st.info("📭 Nenhum chamado aguardando atendimento")
             return
 
         for indice, registro in aguardando.iterrows():
             with st.container(border=True):
-                colunas = st.columns([3, 1, 1, 2])
+                cols = st.columns([3, 1, 1, 2, 1.5])
                 
-                colunas[0].markdown(
-                    f"**Motorista:** {registro['motorista']}  \n"
+                # Coluna 0: Informações principais
+                cols[0].markdown(
+                    f"**Destino:** {registro['destino']}\n\n"
+                    f"**Motorista:** {registro['motorista']}\n"
                     f"**Transportadora:** {registro['transportadora']}"
                 )
                 
-                colunas[1].metric("Placa", registro['placa'])
-                colunas[2].metric("Senha", registro['senha'])
+                # Coluna 1: Dados do veículo
+                cols[1].metric("Placa", registro['placa'])
+                cols[2].metric("Senha", registro['senha'])
                 
-                doca = colunas[3].text_input("Doca Inicial", key=f'doca_{indice}')
-                destino = colunas[3].text_input("Destino Inicial", key=f'dest_{indice}')
+                # Coluna 3: Controles iniciais
+                with cols[3]:
+                    doca = st.text_input(
+                        "📍 Doca Designada", 
+                        key=f'doca_{indice}',
+                        placeholder="Nº doca"
+                    )
+                    destino = st.text_input(
+                        "Destino Confirmado", 
+                        value=registro['destino'],
+                        key=f'dest_{indice}'
+                    )
                 
-                if colunas[3].button("▶️ Iniciar Operação", key=f'iniciar_{indice}'):
-                    cls._iniciar_operacao(dataframe, indice, doca, destino)
+                # Coluna 4: Botão de ação
+                with cols[4]:
+                    if st.button("▶️ Iniciar Operação", key=f'iniciar_{indice}', use_container_width=True):
+                        cls._iniciar_operacao(dataframe, indice, doca, destino)
 
     @classmethod
-    def _iniciar_operacao(cls, dataframe, indice, doca, destino):
-        """Inicia uma nova operação"""
+    def _exibir_operacoes_finalizadas(cls, operacoes, dataframe):
+        """Exibe histórico de operações com possibilidade de reabertura"""
+        for indice, registro in operacoes.iterrows():
+            with st.container(border=True):
+                cols = st.columns([4, 1, 1, 1.5])
+                
+                # Coluna 0: Detalhes da operação
+                cols[0].markdown(
+                    f"**Rota Finalizada:** {registro['destino']}\n\n"
+                    f"**Motorista:** {registro['motorista']}\n"
+                    f"**Transportadora:** {registro['transportadora']}\n"
+                    f"**Duração:** {cls._calcular_duracao(registro)}"
+                )
+                
+                # Coluna 1: Dados técnicos
+                cols[1].metric("Placa", registro['placa'])
+                cols[2].metric("Doca", registro['doca'] or 'N/A')
+                
+                # Coluna 3: Controle de reabertura
+                with cols[3]:
+                    if st.button("↩️ Reabrir", key=f'reabrir_{indice}', use_container_width=True):
+                        cls._reabrir_operacao(dataframe, indice)
+
+    @staticmethod
+    def _calcular_duracao(registro):
+        """Calcula e formata a duração da operação"""
+        if pd.notnull(registro['finalizado_em']):
+            duracao = registro['finalizado_em'] - registro['chamado_em']
+            horas = duracao.total_seconds() // 3600
+            minutos = (duracao.total_seconds() % 3600) // 60
+            return f"{int(horas)}h {int(minutos)}min"
+        return "Não registrado"
+
+    # Métodos de atualização mantidos com adição de logs
+    @classmethod
+    def _atualizar_operacao(cls, dataframe, indice, doca, destino):
+        """Atualiza operação com registro de alterações"""
         try:
-            dataframe.at[indice, 'status'] = 'Chamado'
-            dataframe.at[indice, 'chamado_em'] = datetime.now()
-            dataframe.at[indice, 'doca'] = doca
-            dataframe.at[indice, 'destino'] = destino
-            GerenciadorDados.salvar_registros(dataframe)
-            st.session_state.feedback_patio = ('sucesso', 'Operação iniciada com sucesso!')
+            alteracoes = []
+            if dataframe.at[indice, 'doca'] != doca:
+                alteracoes.append(f"Doca: {dataframe.at[indice, 'doca']} → {doca}")
+            
+            if dataframe.at[indice, 'destino'] != destino:
+                alteracoes.append(f"Destino: {dataframe.at[indice, 'destino']} → {destino}")
+            
+            if alteracoes:
+                dataframe.at[indice, 'doca'] = doca
+                dataframe.at[indice, 'destino'] = destino
+                dataframe.at[indice, 'status'] = 'Em Progresso'
+                GerenciadorDados.salvar_registros(dataframe)
+                mensagem = "Atualizações registradas:\n" + "\n".join(alteracoes)
+                st.session_state.feedback_patio = ('sucesso', mensagem)
+            
             st.rerun()
+        
         except Exception as erro:
-            st.session_state.feedback_patio = ('erro', f'Falha ao iniciar operação: {str(erro)}')
+            st.session_state.feedback_patio = ('erro', f"Erro na atualização: {str(erro)}")
             st.rerun()
+
 
 class ModuloMotoristas:
     """Módulo para exibição de informações aos motoristas"""
