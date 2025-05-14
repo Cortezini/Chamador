@@ -1,268 +1,207 @@
+/* ================ VARIÁVEIS TEMÁTICAS ================ */
 :root {
-  /* ================ VARIÁVEIS GLOBAIS ================ */
-  --primary: #FF5733;
-  --secondary: #C70039;
-  --accent: #2c3e50;
-  --background: #f8f9fa;
-  --text-primary: #2c3e50;
-  --text-muted: #6c757d;
-  --success: #28a745;
-  --error: #dc3545;
-  --warning: #ffc107;
-  --info: #17a2b8;
+  --primary: #FF6B6B;
+  --secondary: #4ECDC4;
+  --accent: #556270;
+  --background: #F5F7FA;
+  --text-primary: #2B2B2B;
+  --text-muted: #6B7C93;
   
-  --radius: 8px;
-  --box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
-  --box-shadow-hover: 0 8px 25px rgba(0, 86, 179, 0.15);
-  --transition: all 0.3s ease;
+  --radius-lg: 12px;
+  --radius-md: 8px;
+  --radius-sm: 4px;
+  
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.15);
+  
+  --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ================ RESET E ESTILOS BASE ================ */
-.stMarkdown p {
-  margin-bottom: 0.5rem;
-  line-height: 1.3;
+/* ================ LAYOUT DO PÁTIO ================ */
+.patio-grid {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
 }
 
-.meu-card[data-testid="stVerticalBlockBorderWrapper"] {
-  padding: 1.5rem !important;
-  border: 1px solid #e0e0e0 !important;
-  border-radius: var(--radius);
-}
-
-/* ================ COMPONENTES COMUNS ================ */
-.card {
-  padding: 1.5rem;
-  border-radius: var(--radius);
+.operacao-card {
   background: white;
-  box-shadow: var(--box-shadow);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  box-shadow: var(--shadow-sm);
   transition: var(--transition);
-  margin-bottom: 1.5rem;
+  border-left: 4px solid transparent;
 }
 
-.card-highlight {
-  border-left: 5px solid var(--primary);
-  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
-  color: white !important;
+.operacao-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-md);
+}
+
+.operacao-card[data-status="Chamado"] {
+  border-left-color: var(--primary);
+  background: linear-gradient(145deg, rgba(255,107,107,0.03) 0%, rgba(255,255,255,1) 100%);
+}
+
+.operacao-card[data-status="Em Progresso"] {
+  border-left-color: var(--secondary);
+  background: linear-gradient(145deg, rgba(78,205,196,0.03) 0%, rgba(255,255,255,1) 100%);
+}
+
+/* ================ ELEMENTOS DE DESTAQUE ================ */
+.doca-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background: var(--primary);
+  color: white;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  gap: 0.5rem;
+}
+
+.doca-badge::before {
+  content: "📍";
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
+.destino-badge {
+  background: linear-gradient(135deg, var(--secondary) 0%, #45B7B1 100%);
+  color: white;
+  padding: 0.75rem 1.25rem;
+  border-radius: var(--radius-md);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.destino-badge::before {
+  content: "🎯";
+}
+
+/* ================ TIPOGRAFIA MODERNA ================ */
+.operacao-titulo {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.detalhe-item {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.detalhe-label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.detalhe-valor {
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+/* ================ BOTÕES E CONTROLES ================ */
+.controle-botao {
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: var(--transition) !important;
+}
+
+.controle-botao:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm) !important;
+}
+
+/* ================ LAYOUT MOTORISTAS ================ */
+.painel-motorista {
+  background: linear-gradient(135deg, var(--background) 0%, #FFFFFF 100%);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  box-shadow: var(--shadow-md);
+}
+
+.info-destaque {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.timeline-operacao {
   position: relative;
-  animation: pulse-highlight 2s infinite alternate;
+  padding: 1rem 0;
 }
 
-.card-muted {
-  background: var(--background);
-  border: 1px solid rgba(0, 0, 0, 0.05);
+.timeline-item {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  position: relative;
 }
 
-/* ================ ELEMENTOS INTERATIVOS ================ */
-.stButton > button {
-  width: 100%;
-  margin: 0.25rem 0;
-  border-radius: var(--radius);
-  transition: var(--transition);
-}
-
-.stTextInput input {
-  border-radius: var(--radius) !important;
-  border: 1px solid #ced4da !important;
-  padding: 0.5rem 0.75rem !important;
-  width: 100% !important;
-}
-
-/* ================ ELEMENTOS ESPECÍFICOS ================ */
-.placa-container {
-  border: 1px solid var(--text-primary);
-  border-radius: calc(var(--radius) / 2);
-  padding: 0.5rem;
-  text-align: center;
-  font-family: 'Courier New', monospace;
-  font-weight: bold;
-}
-
-.senha-container {
-  color: var(--primary);
-  font-weight: bold;
-  text-align: center;
-}
-
-.status-badge {
-  padding: 0.5rem;
-  border-radius: calc(var(--radius) / 2);
-  font-weight: bold;
-  text-align: center;
+.timeline-item::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  background: var(--primary);
+  border-radius: 50%;
+  position: absolute;
+  left: -28px;
+  top: 50%;
+  transform: translateY(-50%);
 }
 
 /* ================ ANIMAÇÕES ================ */
-@keyframes pulse-highlight {
-  0% { transform: scale(1); }
-  100% { transform: scale(1.01); }
-}
-
-@keyframes sound-pulse {
-  0% { transform: scale(1); opacity: 1; }
-  100% { transform: scale(2); opacity: 0; }
-}
-
 @keyframes slideIn {
-  from { transform: translateX(100%); opacity: 0; }
-  to { transform: translateX(0); opacity: 1; }
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* ================ LAYOUT RESPONSIVO ================ */
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255,107,107,0.4); }
+  70% { box-shadow: 0 0 0 12px rgba(255,107,107,0); }
+  100% { box-shadow: 0 0 0 0 rgba(255,107,107,0); }
+}
+
+/* ================ RESPONSIVIDADE ================ */
 @media (max-width: 768px) {
-  .card {
-    padding: 1rem;
+  .patio-grid {
+    grid-template-columns: 1fr;
   }
   
-  .card-highlight h3 {
-    font-size: 1.5rem;
+  .info-destaque {
+    grid-template-columns: 1fr;
   }
   
-  [data-testid="stVerticalBlockBorderWrapper"] {
-    padding: 1rem !important;
+  .detalhe-item {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
   }
 }
 
-/* ================ UTILITÁRIOS ================ */
-.data-emphasis {
-  font-size: 1.2rem;
+/* ================ COMPONENTES ESPECÍFICOS STREAMLIT ================ */
+[data-testid="stVerticalBlockBorderWrapper"] {
+  border: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.stMarkdown strong {
+  color: var(--text-primary);
   font-weight: 600;
-  color: var(--primary);
-}
-
-.time-badge {
-  background: var(--primary);
-  color: white !important;
-  padding: 0.25rem 0.75rem;
-  border-radius: 1rem;
-}
-
-/* Estilos para novos ícones e elementos */
-[data-testid="stMetricValue"] {
-    font-size: 1.2rem !important;
 }
 
 .stButton>button {
-    transition: all 0.3s ease !important;
-}
-
-.stButton>button:hover {
-    transform: scale(1.05);
-}
-
-/* ================================================
-   Nas colunas de Chamados Ativos, motoristas e 
-   transportadoras ficam sempre em linhas separadas
-   ================================================ */
-
-/* Faz com que cada <strong> do Markdown seja um bloco */
-.stMarkdown strong {
-  display: block;
-  margin-bottom: 0.25rem;
-}
-
-/* Garante que as quebras de linha no Markdown sejam respeitadas */
-.stMarkdown p {
-  white-space: pre-line;
-}
-
-/* =====================================================
-   GRID FLEXÍVEL PARA O PAINEL (todas as linhas de cols)
-   ===================================================== */
-
-.grid-patio {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;              /* espaçamento entre “caixinhas” */
-  margin-bottom: 1.5rem;  /* distância entre linhas de grid */
-  align-items: start;     /* tudo no topo */
-}
-
-/* opcional: mantém o estilo de card em cada célula */
-.grid-patio > div {
-  background: white;
-  padding: 1rem;
-  border-radius: var(--radius);
-  box-shadow: var(--box-shadow);
-}
-
-/* =========== TELA DE LOGIN =========== */
-.login-box {
-  background: white;
-  padding: 1.5rem;
-  border-radius: var(--radius);
-  box-shadow: var(--box-shadow);
-  margin: 2rem auto;
-  max-width: 300px;
-  text-align: center;
-}
-
-.login-box h2 {
-  margin-bottom: 1rem;
-  color: var(--primary);
-  font-size: 1.5rem;
-}
-
-.login-input {
-  width: 100%;
-  padding: 0.5rem;
-  margin: 0.5rem 0 1rem;
-  border: 1px solid #ccc;
-  border-radius: var(--radius);
-  font-size: 1rem;
-}
-
-.login-btn {
-  background: var(--primary);
-  color: white;
-  border: none;
-  padding: 0.6rem 1.2rem;
-  font-size: 1rem;
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.login-btn:hover {
-  box-shadow: var(--box-shadow-hover);
-}
-
-/* Força inputs e botões da sidebar a usarem nosso estilo */
-[data-testid="stSidebar"] .login-box {
-  margin-top: 2rem;
-}
-[data-testid="stSidebar"] .login-input {
-  font-family: inherit;
-}
-
-
-/* ================ ESTADOS ESPECÍFICOS ================ */
-.progress-status {
-  background: #fff3cd;
-  color: #856404;
-}
-
-.finished-status {
-  background: #d4edda;
-  color: #155724;
-}
-
-div[data-status="Aguardando"] { background: #fff3cd; color: #856404; }
-div[data-status="Chamado"] { background: #cce5ff; color: #004085; }
-div[data-status="Em Progresso"] { background: #d4edda; color: #155724; }
-div[data-status="Finalizado"] { background: #f8f9fa; color: #6c757d; }
-
-/* ================ NOTIFICAÇÕES ================ */
-div[data-testid="stNotification"] {
-  background: white !important;
-  border-left: 4px solid transparent !important;
-  animation: slideIn 0.3s ease-out !important;
-}
-
-div[data-testid="stNotification"].success-alert {
-  background: #d4edda !important;
-  border-color: var(--success) !important;
-}
-
-div[data-testid="stNotification"].error-alert {
-  background: #f8d7da !important;
-  border-color: var(--error) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 0.75rem 1.5rem !important;
 }

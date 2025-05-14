@@ -81,7 +81,7 @@ CONFIGURACOES = {
         }
     },
     'dados': {
-        'arquivo_csv': 'registros_chamados.csv',
+        # 'arquivo_csv': 'registros_chamados.csv',
         'colunas': [
             'motorista', 'contato', 'transportadora', 'senha', 'placa',
             'cliente', 'vendedor', 'destino', 'doca', 'status', 
@@ -216,36 +216,6 @@ class GerenciadorDados:
             )
         except Exception as e:
             st.error(f"Erro ao salvar dados no SQLite: {e}")
-
-
-class GerenciadorDados:
-    """Classe para operações de leitura/gravação de dados"""
-    
-    @staticmethod
-    def carregar_registros():
-        """Carrega dados dos registros de operações"""
-        try:
-            df = pd.read_csv(
-                CONFIGURACOES['dados']['arquivo_csv'],
-                parse_dates=['chamado_em', 'finalizado_em'],
-                dayfirst=True,
-                dtype={col: str for col in CONFIGURACOES['dados']['colunas'] 
-                       if col not in ['chamado_em', 'finalizado_em']}
-            )
-            return df.fillna('')
-        except FileNotFoundError:
-            return pd.DataFrame(columns=CONFIGURACOES['dados']['colunas'])
-        except Exception as erro:
-            st.error(f"Falha ao carregar dados: {str(erro)}")
-            return pd.DataFrame(columns=CONFIGURACOES['dados']['colunas'])
-
-    @staticmethod
-    def salvar_registros(dataframe):
-        """Persiste os dados em arquivo CSV"""
-        try:
-            dataframe.to_csv(CONFIGURACOES['dados']['arquivo_csv'], index=False)
-        except Exception as erro:
-            st.error(f"Erro ao salvar dados: {str(erro)}")
 
 # ==================================================
 # COMPONENTES DE INTERFACE
@@ -637,9 +607,9 @@ class ModuloPatioOperacional:
     @classmethod
     def _reabrir_operacao(cls, dataframe, indice):
         df = dataframe.copy()
-        df.at[indice, 'status']       = 'Em Progresso'
+        df.at[indice, 'status'] = 'Em Progresso'  # Correção do status
         df.at[indice, 'finalizado_em'] = pd.NaT
-        GerenciadorDados.salvar_registros(dataframe)
+        GerenciadorDados.salvar_registros(df)  # Alterado de dataframe para df
         st.session_state.feedback_patio = ('sucesso', "↩️ Operação reaberta")
         st.rerun()
 
@@ -649,102 +619,71 @@ class ModuloMotoristas:
     @classmethod
     def exibir_painel(cls, dataframe):
         """Interface principal do módulo de motoristas"""
-        st.markdown("""
-            <style>
-                .header-motoristas {
-                    color: #2c3e50;
-                    padding: 10px;
-                    border-radius: 5px;
-                    margin-bottom: 25px;
-                }
-                .destaque-doca {
-                    background: #3498db;
-                    color: white!important;
-                    padding: 8px;
-                    border-radius: 5px;
-                    text-align: center;
-                }
-                .destaque-destino {
-                    background: #27ae60;
-                    color: white!important;
-                    padding: 8px;
-                    border-radius: 5px;
-                    text-align: center;
-                }
-                .card-info {
-                    border: 1px solid #ecf0f1!important;
-                    border-radius: 10px!important;
-                    padding: 15px!important;
-                    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-                    margin-bottom: 15px;
-                }
-                .badge-status {
-                    font-size: 0.8em!important;
-                    padding: 3px 8px!important;
-                    border-radius: 15px!important;
-                }
-                .texto-principal {
-                    font-size: 1.1em!important;
-                    line-height: 1.6!important;
-                }
-            </style>
-        """, unsafe_allow_html=True)
-
-        st.markdown('<h2 class="header-motoristas">🚚 Painel de Orientação para Motoristas</h2>', unsafe_allow_html=True)
-        
+        st.subheader("Painel de Orientação para Motoristas")
         operacoes_ativas = cls._filtrar_operacoes_ativas(dataframe)
         
         if operacoes_ativas.empty:
-            st.info('ℹ️ Nenhuma operação ativa no momento')
+            st.info('Nenhuma operação ativa no momento')
             st.session_state.alerta_reproduzido = False
             return
         
         cls._verificar_novo_chamado(operacoes_ativas)
         cls._exibir_operacao_atual(operacoes_ativas.iloc[0])
 
-    # ... (outros métodos permanecem iguais até o _exibir_operacao_atual)
+    @staticmethod
+    def _filtrar_operacoes_ativas(dataframe):
+        """Filtra operações ativas por data"""
+        return dataframe[
+            dataframe['status'].isin(['Chamado', 'Em Progresso'])
+        ].sort_values('chamado_em', ascending=False)
+
+    @classmethod
+    def _verificar_novo_chamado(cls, operacoes):
+        """Verifica e controla reprodução de alerta"""
+        ultimo_chamado = operacoes.iloc[0]['chamado_em']
+        
+        if st.session_state.ultimo_chamado != ultimo_chamado:
+            st.session_state.ultimo_chamado = ultimo_chamado
+            st.session_state.alerta_reproduzido = False
+        
+        if not st.session_state.alerta_reproduzido and st.session_state.audio_habilitado:
+            cls._reproduzir_alerta()
+            st.session_state.alerta_reproduzido = True
+
+    @staticmethod
+    def _reproduzir_alerta():
+        """Reproduz o alerta sonoro"""
+        try:
+            with open(CONFIGURACOES['audio']['caminho_audio'], 'rb') as arquivo_audio:
+                st.audio(arquivo_audio.read(), format='audio/wav', autoplay=True)
+        except Exception as erro:
+            st.error(f"Falha ao reproduzir alerta: {str(erro)}")
 
     @staticmethod
     def _exibir_operacao_atual(operacao):
-        """Exibe detalhes da operação atual com layout aprimorado"""
-        status_color = {
-            'Chamado': '#e74c3c',
-            'Em Progresso': '#f1c40f'
-        }.get(operacao['status'], '#95a5a6')
-
-        with st.container():
-            st.markdown(f"""
-                <div class="card-info">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                        <span class="badge-status" style="background: {status_color}; color: white;">
-                            {operacao['status']}
-                        </span>
-                        <span style="font-size: 0.9em; color: #7f8c8d;">
-                            📅 {operacao['chamado_em'].strftime('%d/%m/%Y %H:%M')}
-                        </span>
-                    </div>
-                    
-                    <div class="texto-principal">
-                        <div style="margin-bottom: 12px;">
-                            <strong>👤 Motorista:</strong> {operacao.get('motorista', 'N/A')}<br>
-                            <strong>🔢 Placa:</strong> {operacao.get('placa', 'N/A')}<br>
-                            <strong>🏢 Transportadora:</strong> {operacao.get('transportadora', 'N/A')}
-                        </div>
-                        
-                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px;">
-                            <div class="destaque-doca">
-                                <strong>📍 DOCA</strong><br>
-                                {operacao['doca'] or '---'}
-                            </div>
-                            
-                            <div class="destaque-destino">
-                                <strong>🎯 DESTINO</strong><br>
-                                {operacao['destino'] or '---'}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            """, unsafe_allow_html=True)
+        """Exibe detalhes da operação atual"""
+        with st.container(border=True):
+            colunas = st.columns([2, 1, 1, 2])
+            
+            colunas[0].markdown(
+                f"### {operacao.get('motorista', 'N/A')}  \n"
+                f"**Placa:** {operacao.get('placa', 'N/A')}  \n"
+                f"**Transportadora:** {operacao.get('transportadora', 'N/A')}"
+            )
+            
+            colunas[1].markdown(
+                f"<div class='doca-font'>DOCA<br>{operacao['doca'] or '---'}</div>", 
+                unsafe_allow_html=True
+            )
+            
+            colunas[2].markdown(
+                f"<div class='destino-font'>DESTINO<br>{operacao['destino'] or '---'}</div>", 
+                unsafe_allow_html=True
+            )
+            
+            colunas[3].markdown(
+                f"**Início:**  \n{operacao['chamado_em'].strftime('%d/%m/%Y %H:%M')}"
+            )
 
 class ModuloRelatorios:
     """Módulo para geração de relatórios analíticos"""
@@ -890,19 +829,35 @@ class ModuloRelatorios:
 # ==================================================
 
 def login():
-
+    """Gerencia o processo de autenticação do usuário"""
+    # Garante que o estado logged_in existe
+    if 'logged_in' not in st.session_state:
+        st.session_state.logged_in = False
+    
+    # Se já estiver logado, não exibe o formulário
+    if st.session_state.logged_in:
+        return
+    
     st.sidebar.title("🔒 Login")
-    username = st.sidebar.text_input("Usuário")
-    password = st.sidebar.text_input("Senha", type="password")
-    if st.sidebar.button("Entrar"):
-        # validação
+    username = st.sidebar.text_input("Usuário", key="login_user")
+    password = st.sidebar.text_input("Senha", type="password", key="login_pass")
+    
+    # Container para mensagens de erro
+    error_container = st.sidebar.empty()
+    
+    if st.sidebar.button("Entrar", key="login_btn"):
         user = USUARIOS.get(username)
+        
         if user and user[0] == password:
-            st.session_state.user      = username
-            st.session_state.user_role = user[1]
-            st.session_state.logged_in = True
+            # Atualiza o estado da sessão
+            st.session_state.update({
+                'user': username,
+                'user_role': user[1],
+                'logged_in': True
+            })
+            st.rerun()  # Força atualização imediata da página
         else:
-            st.sidebar.error("Usuário ou senha inválidos")
+            error_container.error("Usuário ou senha inválidos")
 
 def main():
     inicializar_estado_aplicacao()
