@@ -83,7 +83,7 @@ CONFIGURACOES = {
         },
         'opcoes_patio': {
             'destinos': ['UNIDADE 1', 'UNIDADE 2', 'NIGRAM'],
-            'docas': [f'DOCA {n}' for n in range(1, 9)]
+            'docas': ['DOCA 1', 'DOCA 2', 'DOCA 3', 'DOCA 4', 'DOCA 5', 'DOCA 6', 'DOCA 7', 'DOCA 8', 'AGUARDE NA SALA DOS MOTORISTAS']
         }
     },
     
@@ -108,6 +108,9 @@ CONFIGURACOES = {
     }
 }
 
+if 'audio_alert' not in st.session_state:
+    st.session_state.audio_alert = None
+
 # ==================================================
 # GERENCIAMENTO DE ESTADO
 # ==================================================
@@ -129,6 +132,7 @@ for key, value in ESTADO_INICIAL.items():
 
 
 USUARIOS = {
+    "1":("1", "administrador"),
     "PAULO":("Paulo1405", "administrador"),
     "MATHEUS":("Matheus1405", "administrador"),
     "admin":("senha123", "administrador"),
@@ -188,6 +192,7 @@ def configurar_pagina():
     Path('assets').mkdir(exist_ok=True)
     carregar_estilos()
     verificar_arquivo_audio()
+
 
 def carregar_estilos():
     """Carrega folha de estilos personalizada"""
@@ -254,13 +259,10 @@ class ComponentesInterface:
         """Renderiza a barra lateral de controles, filtrando por perfil."""
         with st.sidebar:
             st.title('Configurações')
-
-            # pega o papel do usuário (setado no login)
+         
             papel = st.session_state.get('user_role', None)
-            # busca as páginas permitidas; se papel inválido, lista vazia
             opcoes = PERMISSOES.get(papel, [])
 
-            # se não tiver opção, avisa e sai
             if not opcoes:
                 st.error("Você não tem permissão para acessar este sistema.")
                 st.stop()
@@ -302,6 +304,16 @@ class ComponentesInterface:
                 f"<div class='cabecalho'>{CONFIGURACOES['interface']['titulo_pagina']}</div>",
                 unsafe_allow_html=True
             )
+    def tocar_alerta_se_novo_chamado(df):
+        total_chamados = int(df[df['status']=='Chamado'].shape[0])
+        ultimo = st.session_state.get('ultimo_chamado', 0)
+    
+        if total_chamados > ultimo and st.session_state.audio_habilitado:
+            st.session_state.audio_alert = True  # Sinaliza para tocar o alerta
+    
+            st.session_state.ultimo_chamado = total_chamados
+
+    
 
     @staticmethod
     def exibir_notificacao():
@@ -313,6 +325,18 @@ class ComponentesInterface:
             else:
                 st.error(mensagem, icon="⚠️")
             del st.session_state.feedback_patio
+
+    def _gerenciar_atualizacao_automatica():
+        """Controla a atualização automática do sistema"""
+        if st.session_state.atualizacao_automatica:
+            agora = datetime.now()
+            ultima = st.session_state.ultima_atualizacao
+        
+             # Atualiza apenas os módulos necessários
+            if (agora - ultima).seconds >= 15:
+                st.session_state.ultima_atualizacao = agora
+                if st.session_state.modo_atual == 'Controle Pátio':
+                    st.rerun()
 
 # ==================================================
 # MÓDULOS PRINCIPAIS
@@ -923,6 +947,15 @@ def login():
             error_container.error("Usuário ou senha inválidos")
 
 def main():
+
+    if 'logged_in' not in st.session_state:
+        st.session_state.update({
+            'logged_in': False,
+            'user': None,
+            'user_role': None,
+            'login_time': 0
+        })
+
     inicializar_estado_aplicacao()
 
     # 1) se não está logado, mostra o formulário e sai
