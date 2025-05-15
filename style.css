@@ -300,22 +300,13 @@
   border-radius: var(--radius-md);
 }
 
-.btn-reabrir {
-  background: var(--primary);
-  color: white;
-  border: none;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: var(--transition);
-}
-
-.btn-reabrir:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
-}
-
 .info-timestamp {
   color: var(--text-muted);
   font-size: 0.9em;
+}
+
+.botoes-acao {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
 }

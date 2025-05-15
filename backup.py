@@ -25,6 +25,7 @@ from scipy.io.wavfile import write
 from sqlalchemy import create_engine, MetaData, Table, Column, String, DateTime
 from sqlalchemy.exc import NoSuchTableError
 
+
 # 1) Cria o engine SQLite
 SQLITE_FILE = 'registros_chamados.db'
 ENGINE = create_engine(
@@ -41,9 +42,9 @@ def criar_tabela_if_not_exists():
         # tenta carregar a tabela existente
         Table('chamados', META, autoload_with=ENGINE)
     except NoSuchTableError:
-        # se não existe, definir esquema e criar
-        Table(
-            'chamados', META,
+
+        tabela = Table(
+        'chamados', META,
             Column('motorista', String),
             Column('contato', String),
             Column('transportadora', String),
@@ -57,8 +58,8 @@ def criar_tabela_if_not_exists():
             Column('chamado_em', DateTime),
             Column('finalizado_em', DateTime),
         )
-        # efetiva no BD
-        META.create_all(ENGINE)
+    META.create_all(ENGINE)
+
 
 # Chame isto uma vez, assim que o app iniciar:
 criar_tabela_if_not_exists()
@@ -79,10 +80,14 @@ CONFIGURACOES = {
             'secundaria': '#C70039',
             'texto': '#2c3e50',
             'fundo': '#f8f9fa'
+        },
+        'opcoes_patio': {
+            'destinos': ['UNIDADE 1', 'UNIDADE 2', 'NIGRAM'],
+            'docas': [f'DOCA {n}' for n in range(1, 9)]
         }
     },
+    
     'dados': {
-        # 'arquivo_csv': 'registros_chamados.csv',
         'colunas': [
             'motorista', 'contato', 'transportadora', 'senha', 'placa',
             'cliente', 'vendedor', 'destino', 'doca', 'status', 
@@ -479,7 +484,7 @@ class ModuloPatioOperacional:
                     f"<strong>Motorista:</strong> {registro.get('motorista','')}<br>"
                     f"<strong>Transportadora:</strong> {registro.get('transportadora','')}"
                     f"</div>", 
-                        unsafe_allow_html=True
+                    unsafe_allow_html=True
                 )
 
                 # Coluna da Placa
@@ -488,7 +493,7 @@ class ModuloPatioOperacional:
                     f"<span class='info-label'>PLACA</span>"
                     f"<div class='info-value'>{registro.get('placa','').upper().replace('-', '')}</div>"
                     f"</div>", 
-                        unsafe_allow_html=True
+                    unsafe_allow_html=True
                 )
 
                 # Coluna da Senha
@@ -497,18 +502,24 @@ class ModuloPatioOperacional:
                     f"<span class='info-label'>SENHA</span>"
                     f"<div class='info-value'>{registro.get('senha','')}</div>"
                     f"</div>", 
-                        unsafe_allow_html=True
+                    unsafe_allow_html=True
                 )
 
-                # Coluna 3-4: Controles de edição
-                nova_doca = cols[3].text_input(
+                # Seleção de nova doca com selectbox
+                nova_doca = cols[3].selectbox(
                     "📍 Nova Doca",
-                    value=registro.get('doca',''),
+                    options=CONFIGURACOES['interface']['opcoes_patio']['docas'],
+                    index=(CONFIGURACOES['interface']['opcoes_patio']['docas'].index(registro.get('doca',''))
+                           if registro.get('doca','') in CONFIGURACOES['interface']['opcoes_patio']['docas'] else 0),
                     key=f'doca_edit_{indice}'
                 )
-                novo_destino = cols[4].text_input(
+
+                # Seleção de novo destino com selectbox
+                novo_destino = cols[4].selectbox(
                     "🎯 Ajustar Destino",
-                    value=registro.get('destino',''),
+                    options=CONFIGURACOES['interface']['opcoes_patio']['destinos'],
+                    index=(CONFIGURACOES['interface']['opcoes_patio']['destinos'].index(registro.get('destino',''))
+                           if registro.get('destino','') in CONFIGURACOES['interface']['opcoes_patio']['destinos'] else 0),
                     key=f'destino_edit_{indice}'
                 )
 
@@ -541,14 +552,18 @@ class ModuloPatioOperacional:
                 cols[2].metric("🔑 Senha", registro.get('senha',''))
 
                 with cols[3]:
-                    doca = st.text_input(
+                    doca = st.selectbox(
                         "📍 Doca Designada",
-                        value=registro.get('doca',''),
+                        options=CONFIGURACOES['interface']['opcoes_patio']['docas'],
+                        index=(CONFIGURACOES['interface']['opcoes_patio']['docas'].index(registro.get('doca',''))
+                               if registro.get('doca','') in CONFIGURACOES['interface']['opcoes_patio']['docas'] else 0),
                         key=f'doca_{indice}'
                     )
-                    destino = st.text_input(
+                    destino = st.selectbox(
                         "🎯 Destino Confirmado",
-                        value=registro.get('destino',''),
+                        options=CONFIGURACOES['interface']['opcoes_patio']['destinos'],
+                        index=(CONFIGURACOES['interface']['opcoes_patio']['destinos'].index(registro.get('destino',''))
+                               if registro.get('destino','') in CONFIGURACOES['interface']['opcoes_patio']['destinos'] else 0),
                         key=f'dest_{indice}'
                     )
                 with cols[4]:
@@ -647,11 +662,12 @@ class ModuloPatioOperacional:
     @classmethod
     def _reabrir_operacao(cls, dataframe, indice):
         df = dataframe.copy()
-        df.at[indice, 'status'] = 'Em Progresso'  # Correção do status
+        df.at[indice, 'status'] = 'Em Progresso'
         df.at[indice, 'finalizado_em'] = pd.NaT
-        GerenciadorDados.salvar_registros(df)  # Alterado de dataframe para df
+        GerenciadorDados.salvar_registros(df)
         st.session_state.feedback_patio = ('sucesso', "↩️ Operação reaberta")
         st.rerun()
+
 
 class ModuloMotoristas:
     """Módulo para exibição de informações aos motoristas"""
@@ -676,6 +692,17 @@ class ModuloMotoristas:
         return dataframe[
             dataframe['status'].isin(['Chamado', 'Em Progresso'])
         ].sort_values('chamado_em', ascending=False)
+    
+
+    @staticmethod
+    def _calcular_duracao(registro):
+        """Calcula duração da operação formatada"""
+        if pd.notnull(registro.get('chamado_em')) and pd.notnull(registro.get('finalizado_em')):
+            delta = registro['finalizado_em'] - registro['chamado_em']
+            horas = delta.seconds // 3600
+            minutos = (delta.seconds % 3600) // 60
+            return f"{horas}h {minutos}min"
+        return "-"
 
     @classmethod
     def _verificar_novo_chamado(cls, operacoes):
