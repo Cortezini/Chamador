@@ -9,6 +9,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from data.manager import GerenciadorDados
 from components.interface import ComponentesInterface
+from components.audio import AudioManager
 
 
 class ModuloMotoristas:
@@ -93,3 +94,9 @@ class ModuloMotoristas:
             colunas[3].markdown(
                 f"**Início:**  \n{operacao['chamado_em'].strftime('%d/%m/%Y %H:%M')}"
             )
+    
+    @classmethod
+    def _verificar_novo_chamado(cls, operacoes):
+        if st.session_state.audio_habilitado and not st.session_state.alerta_reproduzido:
+            AudioManager.reproduzir_alerta()
+            st.session_state.alerta_reproduzido = True

@@ -31,5 +31,5 @@ USUARIOS = {
 
 PERMISSOES = {
     'administrador': ['Administrativo', 'Controle Pátio', 'Relatórios', 'Informações Motoristas'],
-    'patio': ['Controle Pátio']
+    'patio': ['Controle Pátio', 'informações Motoristas']
 }
