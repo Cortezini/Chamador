@@ -9,6 +9,7 @@ from modules.administrativo import ModuloAdministrativo
 from modules.patio import ModuloPatioOperacional
 from modules.motoristas import ModuloMotoristas
 from modules.relatorios import ModuloRelatorios
+from components.auth import AuthManager
 
 def inicializar_estado():
     defaults = {
@@ -27,34 +28,37 @@ def inicializar_estado():
     for key, value in defaults.items():
         st.session_state.setdefault(key, value)
 
-def login():
-    if st.session_state.logged_in: return
-    
-    st.sidebar.title("🔒 Login")
-    username = st.sidebar.text_input("Usuário").strip().upper()
-    password = st.sidebar.text_input("Senha", type="password")
-    
-    if st.sidebar.button("Entrar"):
-        from data.config import USUARIOS
-        user = USUARIOS.get(username)
-        if user and user[0] == password:
-            st.session_state.update({
-                'logged_in': True,
-                'user': username,
-                'user_role': user[1],
-                'login_time': time.time()
-            })
-            st.rerun()
-        else:
-            st.sidebar.error("Credenciais inválidas")
-
 def main():
+    
     criar_tabela_if_not_exists()
     inicializar_estado()
+
+    auth = AuthManager()
     
-    if not st.session_state.logged_in:
-        login()
+    # Verifica cookie válido
+    if not st.session_state.get('logged_in'):
+        auth.validate_token()
+
+    # Interface de login
+    if not st.session_state.get('logged_in'):
+        with st.sidebar:
+            st.title("🔒 Login BDM")
+            username = st.text_input("Usuário").strip()
+            password = st.text_input("Senha", type="password")
+            
+            if st.button("Acessar"):
+                if auth.login(username, password):
+                    st.rerun()
+                else:
+                    st.error("Credenciais inválidas")
         return
+        
+    # Interface principal
+    with st.sidebar:
+        st.title(f"👤 {st.session_state.user}")
+        if st.button("🚪 Logout"):
+            auth.logout()
+            st.rerun()
 
     if time.time() - st.session_state.login_time > 1800:
         st.warning("Sessão expirada. Faça login novamente.")

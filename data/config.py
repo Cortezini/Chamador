@@ -1,4 +1,15 @@
 from pathlib import Path
+import os
+import hashlib
+
+# Geração segura da SECRET_KEY
+if not os.path.exists('.secret_key'):
+    with open('.secret_key', 'w') as f:
+        f.write(os.urandom(32).hex())
+
+# Leitura correta da chave
+with open('.secret_key', 'r') as f:
+    SECRET_KEY = f.read().strip().encode()  # String → bytes
 
 CONFIGURACOES = {
     'interface': {
@@ -24,12 +35,33 @@ CONFIGURACOES = {
     }
 }
 
+# Verificação de assets essenciais
+if not Path(CONFIGURACOES['interface']['icone_pagina']).exists():
+    raise FileNotFoundError("Ícone não encontrado: assets/bdm.ico")
+
+if not CONFIGURACOES['audio']['caminho_audio'].exists():
+    # Código para gerar áudio automaticamente
+    pass
+
 USUARIOS = {
-    "1": ("1", "administrador"),
-    "OPERADOR": ("op@2025", "patio")
+    b'admin': (
+        (
+            bytes.fromhex('aa234114199b7a0046bdc2b4c7711b3f870a6f9f49e229b0acd49c8e42e39c00'), 
+            bytes.fromhex('1cbb3219f21610021b9ab5b27a20c6bffe4d8b2f5573dda7eb48681b0c761919')
+        ),
+        'administrador'
+    )
 }
 
 PERMISSOES = {
-    'administrador': ['Administrativo', 'Controle Pátio', 'Relatórios', 'Informações Motoristas'],
-    'patio': ['Controle Pátio', 'informações Motoristas']
+    'administrador': [
+        'Administrativo',
+        'Controle Pátio', 
+        'Relatórios', 
+        'Informações Motoristas'
+    ],
+    'patio': [
+        'Controle Pátio', 
+        'Informações Motoristas'
+    ]
 }
