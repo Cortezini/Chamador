@@ -97,6 +97,9 @@ class ModuloMotoristas:
     
     @classmethod
     def _verificar_novo_chamado(cls, operacoes):
-        if st.session_state.audio_habilitado and not st.session_state.alerta_reproduzido:
-            AudioManager.reproduzir_alerta()
-            st.session_state.alerta_reproduzido = True
+        if (st.session_state.audio_habilitado and 
+            not st.session_state.alerta_reproduzido and
+            AudioManager.inicializar()):  # Verifica se o áudio está disponível
+            
+            if AudioManager.reproduzir_alerta():
+                st.session_state.alerta_reproduzido = True

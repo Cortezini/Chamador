@@ -1,6 +1,8 @@
 # components/audio.py
+import os
 import pygame
 import numpy as np
+import streamlit as st
 from pathlib import Path
 from data.config import CONFIGURACOES
 
@@ -10,31 +12,23 @@ class AudioManager:
     @classmethod
     def inicializar(cls):
         if not cls._initialized:
-            pygame.mixer.init()
-            cls._initialized = True
-
-    @classmethod
-    def gerar_audio_alerta(cls):
-        """Gera e salva o áudio de alerta usando Pygame"""
-        config = CONFIGURACOES['audio']
-        taxa_amostragem = config['taxa_amostragem']
-        duracao = config['duracao_alerta']
-        frequencia = config['frequencia_alerta']
-
-        # Gerar onda senoidal
-        t = np.linspace(0, duracao, int(taxa_amostragem * duracao), False)
-        onda = 0.5 * np.sin(2 * np.pi * frequencia * t)
-        audio = np.int16(onda * 32767)
-
-        # Converter para formato Pygame
-        som = pygame.sndarray.make_sound(audio)
-        return som
+            # Configuração para ambientes headless
+            os.environ['SDL_AUDIODRIVER'] = 'dummy'
+            os.environ['PYGAME_HIDE_SUPPORT_PROMPT'] = '1'
+            
+            try:
+                pygame.mixer.init()
+                cls._initialized = True
+            except pygame.error as e:
+                st.error(f"Erro de inicialização de áudio: {str(e)}")
+                cls._initialized = False
 
     @classmethod
     def reproduzir_alerta(cls):
-        """Reproduz o alerta sonoro usando Pygame"""
-        cls.inicializar()
-        
+        """Reproduz o alerta sonoro com fallback seguro"""
+        if not cls.inicializar():
+            return False
+
         try:
             config = CONFIGURACOES['audio']
             caminho_audio = config['caminho_audio']
@@ -43,10 +37,23 @@ class AudioManager:
                 som = pygame.mixer.Sound(str(caminho_audio))
             else:
                 som = cls.gerar_audio_alerta()
-                pygame.mixer.Sound.save(som, str(caminho_audio))
+                som.save(str(caminho_audio))
             
-            som.play()
+            pygame.mixer.Sound.play(som)
             return True
         except Exception as e:
-            print(f"Erro ao reproduzir áudio: {e}")
+            st.error(f"Erro de áudio: {str(e)}")
             return False
+
+    @classmethod
+    def inicializar(cls):
+        if not cls._initialized:
+            try:
+                # Tenta inicializar com configurações seguras
+                pygame.mixer.pre_init(44100, -16, 2, 1024)
+                pygame.mixer.init()
+                cls._initialized = True
+            except pygame.error as e:
+                print(f"Audio disabled: {str(e)}")
+                cls._initialized = False
+        return cls._initialized

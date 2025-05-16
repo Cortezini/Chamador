@@ -10,17 +10,19 @@ from pathlib import Path
 from data.manager import GerenciadorDados
 from components.interface import ComponentesInterface
 
+def get_interface():
+    from components.interface import ComponentesInterface
+    return ComponentesInterface
+
 
 class ModuloPatioOperacional:
     """Módulo para controle de operações no pátio"""
 
     @classmethod
     def exibir_painel(cls, dataframe):
-        """Interface principal do módulo de pátio"""
-        st.subheader("Controle Operacional do Pátio")
+        ComponentesInterface = get_interface()
         ComponentesInterface.exibir_notificacao()
 
-        # Recarrega do CSV para ter sempre dados atualizados
         dataframe = GerenciadorDados.carregar_registros()
 
         tab1, tab2, tab3 = st.tabs([
@@ -239,3 +241,12 @@ class ModuloPatioOperacional:
         GerenciadorDados.salvar_registros(df)
         st.session_state.feedback_patio = ('sucesso', "↩️ Operação reaberta")
         st.rerun()
+
+    @staticmethod
+    def _gerenciar_atualizacoes():
+        """Controla a atualização automática da interface"""
+        if st.session_state.get('atualizacao_automatica', False):
+            tempo_decorrido = time.time() - st.session_state.get('ultima_atualizacao', 0)
+            if tempo_decorrido > 15:  # 15 segundos
+                st.session_state.ultima_atualizacao = time.time()
+                st.rerun()
